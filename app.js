@@ -96,24 +96,51 @@ cameraInput.addEventListener('change', async (event) => {
     const img = new Image();
     img.src = imgURL;
 
-    img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
+img.onload = async () => {
+        // 1. Calcul du ratio de l'écran du téléphone
+        const screenRatio = window.innerHeight / window.innerWidth;
+        const imgRatio = img.height / img.width;
 
-        // 4. Dessiner les informations
-        drawTextOnCanvas(dateStr, lat, lon, locationStr, weatherStr);
-        canvas.style.display = 'block';
-        statusDiv.innerText = "✅ Succès ! Photo sauvegardée dans la galerie PWA.";
+        let sourceX = 0, sourceY = 0;
+        let sourceWidth = img.width, sourceHeight = img.height;
 
-        // 5. Sauvegarde automatique en interne + téléchargement
-        canvas.toBlob((blob) => {
-            // A. Sauvegarde dans la galerie de la PWA
-            saveToPWAGallery(blob);
-            
-            // B. Tentative de sauvegarde dans la galerie native du téléphone
-            //autoDownloadToPhone(blob);
-        }, 'image/jpeg', 0.9);
+        // 2. Ajustement pour recadrer (crop) l'image au centre
+        if (imgRatio > screenRatio) {
+            // L'image est plus allongée que l'écran : on coupe en haut et en bas
+            sourceHeight = img.width * screenRatio;
+            sourceY = (img.height - sourceHeight) / 2;
+        } else {
+            // L'image est plus large que l'écran : on coupe sur les côtés
+            sourceWidth = img.height / screenRatio;
+            sourceX = (img.width - sourceWidth) / 2;
+        }
+
+        // 3. Définir la taille finale du canvas (qui aura le ratio de l'écran)
+        canvas.width = sourceWidth;
+        canvas.height = sourceHeight;
+
+        // 4. Dessiner uniquement la portion recadrée sur le canvas
+        ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
+
+        // --- La suite reste identique ---
+        const dateStr = new Date().toLocaleString('fr-FR');
+        let locationStr = "Recherche localisation...";
+        let weatherStr = "Météo en cours...";
+
+        try {
+            const coords = await getCoordinates();
+            locationStr = await getAddress(coords.latitude, coords.longitude); 
+            weatherStr = await getWeather(coords.latitude, coords.longitude);
+        } catch (error) {
+            console.error("Erreur", error);
+            locationStr = "Localisation indisponible";
+            weatherStr = "Météo indisponible";
+        }
+
+        drawTextOnCanvas(dateStr, locationStr, weatherStr);
+        
+        statusDiv.innerText = "";
+        saveBtn.style.display = 'block';
     };
 });
 
@@ -162,28 +189,28 @@ async function getWeather(lat, lon) {
     }
 }
 
-function drawTextOnCanvas(date, lat, lon, address, weather) {
-    // La barre noire prend 20% de l'image pour accueillir 4 lignes
+function drawTextOnCanvas(date, location, weather) {
+    // Vos nouvelles constantes
     const barHeight = canvas.height * 0.12; 
     const fontSize = canvas.height * 0.025; 
     const padding = canvas.width * 0.025;
 
-    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+    // Fond noir avec transparence à 30% (0.3)
+    ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
     ctx.fillRect(0, canvas.height - barHeight, canvas.width, barHeight);
 
+    // Style du texte
     ctx.fillStyle = "white";
     ctx.font = `bold ${fontSize}px sans-serif`;
     ctx.textBaseline = "top";
 
-    // Espacement calculé dynamiquement
-    const step = barHeight / 5; 
+    // Calcul de l'espacement entre les 3 lignes pour qu'elles tiennent bien dans la barre
+    const lineSpacing = barHeight / 3;
 
-    // 1. Date et Météo
-    ctx.fillText(`📅 ${date} | ☁️ ${weather}`, padding, canvas.height - barHeight + (step * 0.5));
-    // 2. Longitude / Latitude
-    ctx.fillText(`🧭 Lat: ${lat.toFixed(6)} | Lon: ${lon.toFixed(6)}`, padding, canvas.height - barHeight + (step * 1.8));
-    // 3. Adresse
-    ctx.fillText(`📍 ${address}`, padding, canvas.height - barHeight + (step * 3.1));
+    // Affichage des textes avec les nouveaux paddings
+    ctx.fillText(`📅 ${date}`, padding, canvas.height - barHeight + (lineSpacing * 0.15));
+    ctx.fillText(`📍 ${location}`, padding, canvas.height - barHeight + (lineSpacing * 1.15));
+    ctx.fillText(`☁️ ${weather}`, padding, canvas.height - barHeight + (lineSpacing * 2.15));
 }
 
 // --- TENTATIVE DE TÉLÉCHARGEMENT NATIVE ---
