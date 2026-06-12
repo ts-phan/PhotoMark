@@ -1,316 +1,734 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Photo Annotator Pro</title>
-    
-    <style>
-        /* --- CSS --- */
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            text-align: center; 
-            margin: 0; 
-            padding: 20px; 
-            background: #121212; 
-            color: white;
-        }
-        
-        h1 { font-size: 24px; margin-bottom: 20px; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GeoSnap">
+  <meta name="theme-color" content="#0A0A0F">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <title>GeoSnap</title>
 
-        /* Boutons natifs et modernes */
-        .btn { 
-            display: inline-block;
-            padding: 15px 30px; 
-            font-size: 16px; 
-            font-weight: bold;
-            border: none; 
-            border-radius: 30px; 
-            background: #007aff; /* Bleu iOS */
-            color: white; 
-            cursor: pointer; 
-            margin: 10px auto;
-            box-shadow: 0 4px 10px rgba(0, 122, 255, 0.3);
-            transition: transform 0.1s, background 0.2s;
-        }
-        .btn:active { background: #005ce6; transform: scale(0.98); }
-        
-        /* Cacher l'input file par défaut */
-        #cameraInput { display: none; }
-        
-        /* Bouton de la caméra */
-        .camera-label { 
-            background: #34c759; /* Vert iOS */
-            box-shadow: 0 4px 10px rgba(52, 199, 89, 0.3);
-        }
-        .camera-label:active { background: #2da94c; }
+  <style>
+    :root {
+      --bg:       #0A0A0F;
+      --surface:  #13131A;
+      --surface2: #1C1C27;
+      --red:      #E8202A;
+      --red-dim:  rgba(232,32,42,0.15);
+      --white:    #F0F0F5;
+      --muted:    #5A5A72;
+      --mono:     "SF Mono", "Fira Code", "Courier New", monospace;
+      --sans:     -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --radius:   16px;
+    }
 
-        /* Zone d'affichage */
-        #status { margin: 15px 0; color: #a1a1aa; font-size: 14px; }
-        
-        #photoCanvas { 
-            max-width: 100%; 
-            height: auto; 
-            border-radius: 12px; 
-            margin-top: 20px; 
-            display: none; 
-            box-shadow: 0 8px 20px rgba(0,0,0,0.5); 
-        }
-    </style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--white);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      width: 100%;
+      padding: 18px 24px 12px;
+      padding-top: max(18px, env(safe-area-inset-top) + 10px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .logo-dot {
+      width: 10px; height: 10px;
+      background: var(--red);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--red);
+    }
+    .logo span { color: var(--red); }
+    #gps-badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--surface2);
+      padding: 5px 10px;
+      border-radius: 20px;
+      transition: color 0.3s, border-color 0.3s;
+      border: 1px solid transparent;
+    }
+    #gps-badge.active { color: #4ade80; border-color: rgba(74,222,128,0.3); }
+    #gps-badge.error  { color: var(--red); border-color: var(--red-dim); }
+
+    /* ── MAIN ── */
+    main {
+      width: 100%;
+      max-width: 480px;
+      padding: 16px 20px;
+      padding-bottom: max(24px, env(safe-area-inset-bottom) + 16px);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── VIEWFINDER ── */
+    #viewfinder {
+      width: 100%;
+      aspect-ratio: 3/4;
+      background: var(--surface);
+      border-radius: var(--radius);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: 1px solid var(--surface2);
+      transition: border-color 0.2s;
+    }
+    #viewfinder:hover { border-color: var(--red-dim); }
+
+    /* Coin animés du viewfinder */
+    .vf-corner {
+      position: absolute;
+      width: 28px; height: 28px;
+      border-color: var(--red);
+      border-style: solid;
+      opacity: 0.6;
+    }
+    .vf-corner.tl { top: 16px; left: 16px; border-width: 2px 0 0 2px; }
+    .vf-corner.tr { top: 16px; right: 16px; border-width: 2px 2px 0 0; }
+    .vf-corner.bl { bottom: 16px; left: 16px; border-width: 0 0 2px 2px; }
+    .vf-corner.br { bottom: 16px; right: 16px; border-width: 0 2px 2px 0; }
+
+    /* Placeholder */
+    #vf-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      color: var(--muted);
+      user-select: none;
+      pointer-events: none;
+    }
+    .vf-icon {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      background: var(--surface2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+    }
+    #vf-placeholder p { font-size: 14px; }
+
+    /* Photo affichée */
+    #photo-preview {
+      display: none;
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+    canvas#annotated {
+      display: none;
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+
+    /* ── PROCESSING OVERLAY ── */
+    #processing {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(10,10,15,0.85);
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      backdrop-filter: blur(4px);
+    }
+    #processing.active { display: flex; }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 3px solid var(--surface2);
+      border-top-color: var(--red);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #processing p { font-size: 13px; color: var(--muted); font-family: var(--mono); }
+
+    /* ── META STRIP ── */
+    #meta-strip {
+      display: none;
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-family: var(--mono);
+      font-size: 12px;
+      gap: 8px;
+      flex-direction: column;
+      border: 1px solid var(--surface2);
+    }
+    #meta-strip.visible { display: flex; }
+    .meta-row { display: flex; justify-content: space-between; align-items: center; }
+    .meta-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .meta-val { color: var(--white); }
+    .meta-divider { height: 1px; background: var(--surface2); }
+
+    /* ── BOUTONS ── */
+    input[type="file"] { display: none; }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+    }
+    .btn {
+      flex: 1;
+      padding: 16px 12px;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active { opacity: 0.8; transform: scale(0.98); }
+    .btn-primary {
+      background: var(--red);
+      color: white;
+    }
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--white);
+    }
+    .btn-save {
+      background: linear-gradient(135deg, #1a6b3c, #22c55e);
+      color: white;
+      display: none;
+    }
+    .btn-save.visible { display: flex; }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* ── PERMISSION NOTICE ── */
+    #perm-notice {
+      background: rgba(232,32,42,0.08);
+      border: 1px solid rgba(232,32,42,0.2);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+      display: none;
+    }
+    #perm-notice strong { color: var(--white); }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed;
+      bottom: max(32px, env(safe-area-inset-bottom) + 20px);
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface2);
+      color: var(--white);
+      padding: 12px 20px;
+      border-radius: 30px;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      white-space: nowrap;
+      z-index: 100;
+      border: 1px solid rgba(255,255,255,0.07);
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    #toast.success { border-color: rgba(74,222,128,0.3); }
+    #toast.error   { border-color: rgba(232,32,42,0.4); }
+
+  </style>
 </head>
 <body>
 
-    <h1>📸 Photo Annotator</h1>
-    
-    <label for="cameraInput" class="btn camera-label">Prendre une photo</label>
-    <input type="file" accept="image/*" capture="environment" id="cameraInput">
-    
-    <div id="status"></div>
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    Geo<span>Snap</span>
+  </div>
+  <div id="gps-badge">GPS —</div>
+</header>
 
-    <canvas id="photoCanvas"></canvas>
-    
-    <button id="saveBtn" class="btn" style="display:none; background: #ff9500; box-shadow: 0 4px 10px rgba(255, 149, 0, 0.3);">
-        💾 Enregistrer / Partager
+<main>
+
+  <!-- Viewfinder -->
+  <label for="cameraInput" id="viewfinder">
+    <div class="vf-corner tl"></div>
+    <div class="vf-corner tr"></div>
+    <div class="vf-corner bl"></div>
+    <div class="vf-corner br"></div>
+
+    <div id="vf-placeholder">
+      <div class="vf-icon">📷</div>
+      <p>Appuyer pour capturer</p>
+    </div>
+
+    <canvas id="annotated"></canvas>
+
+    <div id="processing">
+      <div class="spinner"></div>
+      <p id="proc-label">Traitement…</p>
+    </div>
+  </label>
+  <input type="file" accept="image/*" id="cameraInput">
+
+  <!-- Meta strip -->
+  <div id="meta-strip">
+    <div class="meta-row">
+      <span class="meta-label">Date &amp; Heure</span>
+      <span class="meta-val" id="m-time">—</span>
+    </div>
+    <div class="meta-divider"></div>
+    <div class="meta-row">
+      <span class="meta-label">Lieu</span>
+      <span class="meta-val" id="m-city">—</span>
+    </div>
+    <div class="meta-divider"></div>
+    <div class="meta-row">
+      <span class="meta-label">Coordonnées</span>
+      <span class="meta-val" id="m-coords">—</span>
+    </div>
+  </div>
+
+  <!-- Boutons -->
+  <div class="btn-row">
+    <label for="cameraInput" class="btn btn-secondary">
+      <span>🔄</span> Nouvelle photo
+    </label>
+    <button id="saveBtn" class="btn btn-save" aria-label="Enregistrer dans la galerie">
+      <span>💾</span> Enregistrer
     </button>
+  </div>
 
-    <script>
-        /* --- JAVASCRIPT --- */
-        const cameraInput = document.getElementById('cameraInput');
-        const canvas = document.getElementById('photoCanvas');
-        const ctx = canvas.getContext('2d');
-        const saveBtn = document.getElementById('saveBtn');
-        const statusDiv = document.getElementById('status');
+  <!-- Permission notice -->
+  <div id="perm-notice">
+    <strong>Sauvegarde dans la galerie :</strong> Sur iOS, appuyez sur le bouton et choisissez «&nbsp;Enregistrer dans Photos&nbsp;». Sur Android, la photo est téléchargée dans vos fichiers.
+  </div>
 
-        cameraInput.addEventListener('change', async (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
+</main>
 
-            statusDiv.innerText = "Création du visuel en cours...";
-            canvas.style.display = 'block';
-            saveBtn.style.display = 'none';
+<div id="toast"></div>
 
-            const imgURL = URL.createObjectURL(file);
-            const img = new Image();
-            img.src = imgURL;
+<script>
+/* ═══════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════ */
+const state = {
+  lat: 0, lon: 0,
+  city: 'Localisation indisponible',
+  gpsReady: false,
+  now: null,
+  mapImg: null,
+};
 
-            img.onload = async () => {
-                // 1. Recadrage au ratio de l'écran
-                const screenRatio = window.innerHeight / window.innerWidth;
-                const imgRatio = img.height / img.width;
+/* ═══════════════════════════════════════════
+   DOM REFS
+═══════════════════════════════════════════ */
+const cameraInput  = document.getElementById('cameraInput');
+const canvas       = document.getElementById('annotated');
+const ctx          = canvas.getContext('2d');
+const saveBtn      = document.getElementById('saveBtn');
+const gpsBadge     = document.getElementById('gps-badge');
+const processing   = document.getElementById('processing');
+const procLabel    = document.getElementById('proc-label');
+const metaStrip    = document.getElementById('meta-strip');
+const permNotice   = document.getElementById('perm-notice');
 
-                let sourceX = 0, sourceY = 0;
-                let sourceWidth = img.width, sourceHeight = img.height;
+/* ═══════════════════════════════════════════
+   SERVICE WORKER
+═══════════════════════════════════════════ */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(console.warn);
+}
 
-                if (imgRatio > screenRatio) {
-                    sourceHeight = img.width * screenRatio;
-                    sourceY = (img.height - sourceHeight) / 2;
-                } else {
-                    sourceWidth = img.height / screenRatio;
-                    sourceX = (img.width - sourceWidth) / 2;
-                }
+/* ═══════════════════════════════════════════
+   GPS — init au chargement
+═══════════════════════════════════════════ */
+function initGPS() {
+  if (!navigator.geolocation) {
+    setGPSBadge('error', 'GPS indisponible');
+    return;
+  }
+  setGPSBadge('', 'GPS…');
+  navigator.geolocation.watchPosition(
+    pos => {
+      state.lat = pos.coords.latitude;
+      state.lon = pos.coords.longitude;
+      state.gpsReady = true;
+      setGPSBadge('active', `${state.lat.toFixed(4)}° ${state.lon.toFixed(4)}°`);
+      // Fetch city in background
+      getCity(state.lat, state.lon).then(c => { state.city = c; });
+    },
+    err => {
+      setGPSBadge('error', 'GPS refusé');
+    },
+    { enableHighAccuracy: true, maximumAge: 15000, timeout: 10000 }
+  );
+}
 
-                canvas.width = sourceWidth;
-                canvas.height = sourceHeight;
-                ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
+function setGPSBadge(cls, text) {
+  gpsBadge.textContent = text;
+  gpsBadge.className = cls;
+  gpsBadge.id = 'gps-badge';
+  if (cls) gpsBadge.classList.add(cls);
+}
 
-                // 2. Préparation des données par défaut
-                const now = new Date();
-                let cityStr = "Recherche localisation...";
-                let lat = 0, lon = 0;
-                let mapTileImg = null;
+initGPS();
 
-                // 3. Récupération des données AVEC sécurité anti-blocage
-                try {
-                    const coords = await getCoordinates();
-                    lat = coords.latitude;
-                    lon = coords.longitude;
-                    
-                    const [fetchedCity, fetchedMap] = await Promise.all([
-                        getCity(lat, lon),
-                        getMapTile(lat, lon)
-                    ]);
-                    
-                    cityStr = fetchedCity;
-                    mapTileImg = fetchedMap;
+/* ═══════════════════════════════════════════
+   CAMERA INPUT
+═══════════════════════════════════════════ */
+cameraInput.addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
 
-                } catch (error) {
-                    console.warn("Avertissement GPS/Réseau :", error);
-                    cityStr = "Localisation indisponible";
-                }
+  state.now = new Date();
+  saveBtn.classList.remove('visible');
+  metaStrip.classList.remove('visible');
+  showProcessing('Lecture de la photo…');
 
-                // 4. Dessin final par-dessus la photo
-                drawTextOnCanvas(now, cityStr, lat, lon, mapTileImg);
-                
-                statusDiv.innerText = "✅ Photo prête !";
-                saveBtn.style.display = 'inline-block';
-            };
-        });
+  try {
+    const imgURL = URL.createObjectURL(file);
+    const img    = await loadImage(imgURL);
+    URL.revokeObjectURL(imgURL);
 
-        // --- API ET UTILITAIRES ---
+    // Crop to screen ratio
+    cropToScreen(img);
 
-        function getCoordinates() {
-            return new Promise((resolve, reject) => {
-                if (!navigator.geolocation) {
-                    reject("Géolocalisation non supportée");
-                    return;
-                }
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => resolve(pos.coords),
-                    (err) => reject(err.message),
-                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 10000 }
-                );
-            });
-        }
+    // Fetch map tile in parallel (non-blocking)
+    procLabel.textContent = 'Récupération carte…';
+    const mapImgResult = state.gpsReady
+      ? await getMapTile(state.lat, state.lon)
+      : null;
+    state.mapImg = mapImgResult;
 
-        async function getCity(lat, lon) {
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 4000);
+    // Draw annotations
+    procLabel.textContent = 'Annotation…';
+    drawAnnotations();
 
-                const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
-                const response = await fetch(url, {
-                    headers: { 'User-Agent': 'PhotoPWA/1.0' },
-                    signal: controller.signal
-                });
-                
-                clearTimeout(timeoutId);
+    // Show UI
+    canvas.style.display = 'block';
+    document.getElementById('vf-placeholder').style.display = 'none';
+    hideProcessing();
+    saveBtn.classList.add('visible');
+    metaStrip.classList.add('visible');
+    permNotice.style.display = 'block';
+    updateMetaStrip();
 
-                if (!response.ok) throw new Error("Erreur serveur API");
-                const data = await response.json();
-                
-                return data.address.city || data.address.town || data.address.village || data.address.municipality || "Ville inconnue";
-            } catch (error) {
-                return "Localisation indisponible";
-            }
-        }
+  } catch (err) {
+    hideProcessing();
+    showToast('❌ Erreur : ' + err.message, 'error');
+    console.error(err);
+  }
 
-        function getMapTile(lat, lon, zoom = 15) {
-            return new Promise((resolve) => {
-                const n = Math.pow(2, zoom);
-                const x = Math.floor(n * ((lon + 180) / 360));
-                const latRad = lat * Math.PI / 180;
-                const y = Math.floor(n * (1 - (Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI)) / 2);
+  // Reset input so same file can re-trigger
+  cameraInput.value = '';
+});
 
-                const url = `https://a.tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
+/* ═══════════════════════════════════════════
+   IMAGE HELPERS
+═══════════════════════════════════════════ */
+function loadImage(src) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = () => rej(new Error('Impossible de charger l\'image'));
+    img.src = src;
+  });
+}
 
-                const img = new Image();
-                img.crossOrigin = "anonymous";
-                
-                const timer = setTimeout(() => { img.src = ""; resolve(null); }, 4000);
+function cropToScreen(img) {
+  const screenRatio = window.innerHeight / window.innerWidth;
+  const imgRatio    = img.height / img.width;
+  let sx = 0, sy = 0, sw = img.width, sh = img.height;
 
-                img.onload = () => { clearTimeout(timer); resolve(img); };
-                img.onerror = () => { clearTimeout(timer); resolve(null); };
-                img.src = url;
-            });
-        }
+  if (imgRatio > screenRatio) {
+    sh = img.width * screenRatio;
+    sy = (img.height - sh) / 2;
+  } else {
+    sw = img.height / screenRatio;
+    sx = (img.width - sw) / 2;
+  }
 
-        // --- DESSIN SUR LE CANVAS ---
+  canvas.width  = sw;
+  canvas.height = sh;
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+}
 
-        function drawTextOnCanvas(now, city, lat, lon, mapImg) {
-            const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-            const dateStr = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-            let dayStr = now.toLocaleDateString('fr-FR', { weekday: 'short' });
-            dayStr = dayStr.charAt(0).toUpperCase() + dayStr.slice(1);
-            
-            const latStr = (lat !== 0) ? lat.toFixed(6) + "°N" : "N/A";
-            const lonStr = (lon !== 0) ? lon.toFixed(6) + "°E" : "N/A";
-            const coordStr = `Coordonnée: ${latStr}, ${lonStr}`;
+/* ═══════════════════════════════════════════
+   GEOCODING
+═══════════════════════════════════════════ */
+async function getCity(lat, lon) {
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 5000);
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+      { headers: { 'Accept-Language': 'fr', 'User-Agent': 'GeoSnapPWA/2.0' }, signal: ctrl.signal }
+    );
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    return d.address.city || d.address.town || d.address.village || d.address.municipality || 'Lieu inconnu';
+  } catch { return 'Localisation indisponible'; }
+}
 
-            const padding = canvas.width * 0.04;
-            const baseY = canvas.height - padding;
+/* ═══════════════════════════════════════════
+   MAP TILE
+═══════════════════════════════════════════ */
+function getMapTile(lat, lon, zoom = 16) {
+  return new Promise(resolve => {
+    const n   = 2 ** zoom;
+    const x   = Math.floor(n * (lon + 180) / 360);
+    const lr  = lat * Math.PI / 180;
+    const y   = Math.floor(n * (1 - Math.log(Math.tan(lr) + 1 / Math.cos(lr)) / Math.PI) / 2);
+    const url = `https://a.tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
 
-            ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-            ctx.shadowBlur = 6;
-            ctx.shadowOffsetX = 1;
-            ctx.shadowOffsetY = 1;
-            ctx.fillStyle = "white";
-            ctx.textBaseline = "bottom";
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    const t = setTimeout(() => resolve(null), 5000);
+    img.onload  = () => { clearTimeout(t); resolve(img); };
+    img.onerror = () => { clearTimeout(t); resolve(null); };
+    img.src = url;
+  });
+}
 
-            // Coordonnées
-            ctx.font = `${canvas.height * 0.018}px sans-serif`;
-            ctx.fillText(coordStr, padding, baseY);
+/* ═══════════════════════════════════════════
+   DRAWING — style inspiré de la photo exemple
+═══════════════════════════════════════════ */
+function drawAnnotations() {
+  const W = canvas.width, H = canvas.height;
+  const now = state.now;
 
-            // Ville
-            const cityY = baseY - (canvas.height * 0.03);
-            ctx.font = `${canvas.height * 0.022}px sans-serif`;
-            ctx.fillText(city, padding, cityY);
+  // ── Dégradé de vignette bas ──
+  const grad = ctx.createLinearGradient(0, H * 0.55, 0, H);
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.82)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
 
-            // Heure
-            const timeY = cityY - (canvas.height * 0.015);
-            ctx.font = `bold ${canvas.height * 0.065}px "Arial Narrow", sans-serif`;
-            ctx.fillText(timeStr, padding, timeY);
+  const pad = W * 0.045;
+  const baseY = H - pad;
 
-            // Ligne Rouge
-            const timeWidth = ctx.measureText(timeStr).width;
-            const lineX = padding + timeWidth + (canvas.width * 0.025);
-            
-            ctx.shadowColor = "transparent";
-            ctx.strokeStyle = "#e74c3c";
-            ctx.lineWidth = canvas.width * 0.005;
-            const lineTop = timeY - (canvas.height * 0.055);
-            ctx.beginPath();
-            ctx.moveTo(lineX, timeY);
-            ctx.lineTo(lineX, lineTop);
-            ctx.stroke();
+  // Shadow helper
+  function setShadow() {
+    ctx.shadowColor   = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur    = 8;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+  }
+  function clearShadow() {
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur  = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+  }
 
-            // Date & Jour
-            ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-            ctx.fillStyle = "white";
-            ctx.textBaseline = "top";
-            ctx.font = `${canvas.height * 0.02}px sans-serif`;
-            const dateX = lineX + (canvas.width * 0.02);
-            
-            ctx.fillText(dateStr, dateX, lineTop);
-            ctx.fillText(dayStr, dateX, lineTop + (canvas.height * 0.028));
+  ctx.fillStyle   = 'rgba(255,255,255,0.92)';
+  ctx.textBaseline = 'bottom';
 
-            // Vignette Carte OSM
-            if (mapImg) {
-                const mapSize = canvas.width * 0.22;
-                const mapX = canvas.width - padding - mapSize;
-                const mapY = canvas.height - padding - mapSize;
+  // ── Coordonnées ──
+  setShadow();
+  ctx.font = `${H * 0.018}px "SF Mono", "Fira Code", monospace`;
+  const coordStr = state.gpsReady
+    ? `${state.lat.toFixed(6)}°N  ${state.lon.toFixed(6)}°E`
+    : 'Coordonnées indisponibles';
+  ctx.fillText(coordStr, pad, baseY);
 
-                ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-                ctx.fillStyle = "white";
-                ctx.fillRect(mapX - 3, mapY - 3, mapSize + 6, mapSize + 6);
+  // ── Ville ──
+  const cityY = baseY - H * 0.032;
+  ctx.font = `500 ${H * 0.024}px -apple-system, BlinkMacSystemFont, sans-serif`;
+  ctx.fillText(state.city, pad, cityY);
 
-                ctx.shadowColor = "transparent";
-                ctx.drawImage(mapImg, mapX, mapY, mapSize, mapSize);
+  // ── Heure ──
+  const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const timeY   = cityY - H * 0.016;
+  ctx.font = `700 ${H * 0.072}px "Arial Narrow", Arial, sans-serif`;
+  ctx.fillText(timeStr, pad, timeY);
 
-                ctx.fillStyle = "#007AFF"; 
-                ctx.strokeStyle = "white";
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.arc(mapX + mapSize / 2, mapY + mapSize / 2, mapSize * 0.08, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.stroke();
-            }
-        }
+  // ── Ligne rouge verticale ──
+  const tw   = ctx.measureText(timeStr).width;
+  const lineX = pad + tw + W * 0.028;
+  clearShadow();
+  ctx.strokeStyle = '#E8202A';
+  ctx.lineWidth   = W * 0.006;
+  ctx.lineCap     = 'round';
+  const lineTop = timeY - H * 0.06;
+  ctx.beginPath();
+  ctx.moveTo(lineX, timeY);
+  ctx.lineTo(lineX, lineTop);
+  ctx.stroke();
 
-        // --- SAUVEGARDE ET PARTAGE ---
+  // ── Date & Jour ──
+  setShadow();
+  ctx.fillStyle   = 'rgba(255,255,255,0.92)';
+  ctx.textBaseline = 'top';
+  const dateX = lineX + W * 0.022;
+  const dateStr = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  let dayStr    = now.toLocaleDateString('fr-FR', { weekday: 'short' });
+  dayStr = dayStr.charAt(0).toUpperCase() + dayStr.slice(1);
 
-        saveBtn.addEventListener('click', async () => {
-            canvas.toBlob(async (blob) => {
-                const file = new File([blob], "photo_annotee.jpg", { type: "image/jpeg" });
+  ctx.font = `${H * 0.022}px -apple-system, BlinkMacSystemFont, sans-serif`;
+  ctx.fillText(dateStr, dateX, lineTop);
+  ctx.fillText(dayStr,  dateX, lineTop + H * 0.03);
 
-                if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    try {
-                        await navigator.share({
-                            files: [file],
-                            title: 'Ma Photo',
-                            text: 'Photo avec GPS et carte.'
-                        });
-                    } catch (err) {
-                        console.log("Partage annulé ou échoué", err);
-                    }
-                } else {
-                    const link = document.createElement('a');
-                    link.download = `photo_${Date.now()}.jpg`;
-                    link.href = URL.createObjectURL(blob);
-                    link.click();
-                    URL.revokeObjectURL(link.href);
-                }
-            }, 'image/jpeg', 0.95);
-        });
-    </script>
+  // ── Miniature OSM ──
+  if (state.mapImg) {
+    const mSize = W * 0.24;
+    const mX    = W - pad - mSize;
+    const mY    = H - pad - mSize;
+
+    clearShadow();
+
+    // Cadre blanc
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur  = 12;
+    ctx.fillStyle   = 'white';
+    const br = mSize * 0.08;
+    roundRect(ctx, mX - 3, mY - 3, mSize + 6, mSize + 6, br + 2);
+    ctx.fill();
+
+    clearShadow();
+
+    // Clip arrondi pour la carte
+    ctx.save();
+    roundRect(ctx, mX, mY, mSize, mSize, br);
+    ctx.clip();
+    ctx.drawImage(state.mapImg, mX, mY, mSize, mSize);
+    ctx.restore();
+
+    // Point de position
+    ctx.fillStyle   = '#E8202A';
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth   = 2;
+    ctx.beginPath();
+    ctx.arc(mX + mSize / 2, mY + mSize / 2, mSize * 0.09, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+/* ═══════════════════════════════════════════
+   META STRIP UPDATE
+═══════════════════════════════════════════ */
+function updateMetaStrip() {
+  const now = state.now;
+  document.getElementById('m-time').textContent =
+    now.toLocaleDateString('fr-FR', { weekday:'short', day:'2-digit', month:'short', year:'numeric' })
+    + ' · ' + now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+  document.getElementById('m-city').textContent = state.city;
+  document.getElementById('m-coords').textContent = state.gpsReady
+    ? `${state.lat.toFixed(6)}°N · ${state.lon.toFixed(6)}°E`
+    : 'Indisponible';
+}
+
+/* ═══════════════════════════════════════════
+   PROCESSING UI
+═══════════════════════════════════════════ */
+function showProcessing(msg) {
+  procLabel.textContent = msg;
+  processing.classList.add('active');
+}
+function hideProcessing() {
+  processing.classList.remove('active');
+}
+
+/* ═══════════════════════════════════════════
+   SAVE — galerie native via Share API ou fallback
+═══════════════════════════════════════════ */
+saveBtn.addEventListener('click', async () => {
+  saveBtn.disabled = true;
+
+  canvas.toBlob(async blob => {
+    const ts   = state.now ? state.now.toISOString().replace(/[:.]/g,'-').slice(0,19) : Date.now();
+    const fileName = `GeoSnap_${ts}.jpg`;
+    const file = new File([blob], fileName, { type: 'image/jpeg' });
+
+    // Tentative Web Share API (mobile natif → Enregistrer dans Photos sur iOS)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: 'GeoSnap', text: 'Photo annotée GeoSnap' });
+        showToast('✅ Photo partagée', 'success');
+      } catch (err) {
+        if (err.name !== 'AbortError') fallbackDownload(blob, fileName);
+      }
+    } else {
+      // Fallback : téléchargement direct (Android, desktop)
+      fallbackDownload(blob, fileName);
+    }
+
+    saveBtn.disabled = false;
+  }, 'image/jpeg', 0.96);
+});
+
+function fallbackDownload(blob, name) {
+  const url  = URL.createObjectURL(blob);
+  const link = Object.assign(document.createElement('a'), { href: url, download: name });
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast('⬇️ Photo téléchargée', 'success');
+}
+
+/* ═══════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════ */
+let toastTimer;
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent  = msg;
+  t.className    = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 3000);
+}
+</script>
 </body>
 </html>

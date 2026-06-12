@@ -1,40 +1,20 @@
-const CACHE_NAME = 'photo-pwa-v1';
-const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './app.js',
-  './manifest.json'
-];
+const CACHE_NAME = 'geosnap-v1';
+const ASSETS = ['./index.html', './manifest.json'];
 
-// Installation du Service Worker et mise en cache des fichiers
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(ASSETS)));
+  self.skipWaiting();
 });
 
-// Activation et nettoyage des anciens caches
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
-        })
-      );
-    })
-  );
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys =>
+    Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+  ));
+  self.clients.claim();
 });
 
-// Interception des requêtes : on sert le cache en priorité, sinon on va sur le réseau
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
+self.addEventListener('fetch', e => {
+  e.respondWith(
+    caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('./index.html')))
   );
 });
