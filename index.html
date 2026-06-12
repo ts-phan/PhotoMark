@@ -3,40 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhotoPWA</title>
-    
+    <title>PhotoPWA & Galerie</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f0f0f0; }
-        .btn { padding: 15px 25px; font-size: 16px; border: none; border-radius: 8px; background: #007bff; color: white; cursor: pointer; margin: 10px; }
-        .btn:active { background: #0056b3; }
-        /* Style pour masquer l'input file moche et le remplacer par un bouton */
+        body { font-family: sans-serif; text-align: center; padding: 10px; background: #f0f0f0; margin: 0; }
+        h1 { font-size: 20px; }
+        .btn { padding: 12px 20px; font-size: 16px; border: none; border-radius: 8px; background: #007bff; color: white; cursor: pointer; margin: 5px; }
+        .btn-success { background: #28a745; }
         #cameraInput { display: none; }
-        .camera-label { display: inline-block; padding: 15px 25px; font-size: 16px; border-radius: 8px; background: #28a745; color: white; cursor: pointer; margin: 10px; }
+        
+        /* Navigation */
+        .nav { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+        
+        /* Vues */
+        .view { display: none; }
+        .view.active { display: block; }
+
+        /* Canvas (Aperçu) */
+        #photoCanvas { max-width: 100%; border-radius: 8px; margin-top: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        #status { margin-top: 10px; color: #d9534f; font-weight: bold; }
+
+        /* Grille de la Galerie */
+        #galleryGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 20px; }
+        .gallery-item { width: 100%; border-radius: 8px; object-fit: cover; aspect-ratio: 3/4; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
     </style>
 </head>
 <body>
-    <h1>Photo Annotator</h1>
+    <h1>📍 PWA Photo & Galerie</h1>
     
-    <label for="cameraInput" class="camera-label">📸 Prendre une photo</label>
-    <input type="file" accept="image/*" capture="environment" id="cameraInput">
-    
-    <div id="status" style="margin-top: 10px; color: #555;"></div>
+    <div class="nav">
+        <button class="btn" id="btnAppareil">📷 Appareil</button>
+        <button class="btn" id="btnGalerie">🖼️ Ma Galerie PWA</button>
+    </div>
 
-    <canvas id="photoCanvas" style="max-width: 100%; border-radius: 8px; margin-top: 20px; display: none; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"></canvas>
-    
-    <button id="saveBtn" class="btn" style="display:none; margin: 20px auto;">💾 Sauvegarder / Partager</button>
+    <div id="viewAppareil" class="view active">
+        <label for="cameraInput" class="btn btn-success">Prendre une photo</label>
+        <input type="file" accept="image/*" capture="environment" id="cameraInput">
+        
+        <div id="status"></div>
+        <canvas id="photoCanvas"></canvas>
+    </div>
+
+    <div id="viewGalerie" class="view">
+        <h2>Vos photos sauvegardées</h2>
+        <div id="galleryGrid"></div>
+    </div>
 
     <script src="app.js"></script>
     <script>
-        // Enregistrement du Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('Service Worker enregistré', reg))
-                    .catch(err => console.error('Erreur Service Worker', err));
+                navigator.serviceWorker.register('./sw.js').catch(err => console.error(err));
             });
         }
     </script>
