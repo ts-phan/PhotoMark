@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhotoPWA</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f0f0f0; }
+        .btn { padding: 15px 25px; font-size: 16px; border: none; border-radius: 8px; background: #007bff; color: white; cursor: pointer; margin: 10px; }
+        .btn:active { background: #0056b3; }
+        /* Style pour masquer l'input file moche et le remplacer par un bouton */
+        #cameraInput { display: none; }
+        .camera-label { display: inline-block; padding: 15px 25px; font-size: 16px; border-radius: 8px; background: #28a745; color: white; cursor: pointer; margin: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Photo Annotator</h1>
+    
+    <label for="cameraInput" class="camera-label">📸 Prendre une photo</label>
+    <input type="file" accept="image/*" capture="environment" id="cameraInput">
+    
+    <div id="status" style="margin-top: 10px; color: #555;"></div>
+
+    <canvas id="photoCanvas" style="max-width: 100%; border-radius: 8px; margin-top: 20px; display: none; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"></canvas>
+    
+    <button id="saveBtn" class="btn" style="display:none; margin: 20px auto;">💾 Sauvegarder / Partager</button>
+
+    <script src="app.js"></script>
+    <script>
+        // Enregistrement du Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker enregistré', reg))
+                    .catch(err => console.error('Erreur Service Worker', err));
+            });
+        }
+    </script>
+</body>
+</html>
