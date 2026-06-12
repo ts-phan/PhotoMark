@@ -112,7 +112,7 @@ cameraInput.addEventListener('change', async (event) => {
             saveToPWAGallery(blob);
             
             // B. Tentative de sauvegarde dans la galerie native du téléphone
-            autoDownloadToPhone(blob);
+            //autoDownloadToPhone(blob);
         }, 'image/jpeg', 0.9);
     };
 });
@@ -164,11 +164,11 @@ async function getWeather(lat, lon) {
 
 function drawTextOnCanvas(date, lat, lon, address, weather) {
     // La barre noire prend 20% de l'image pour accueillir 4 lignes
-    const barHeight = canvas.height * 0.20; 
-    const fontSize = canvas.height * 0.035; 
-    const padding = canvas.width * 0.05;
+    const barHeight = canvas.height * 0.12; 
+    const fontSize = canvas.height * 0.025; 
+    const padding = canvas.width * 0.025;
 
-    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
     ctx.fillRect(0, canvas.height - barHeight, canvas.width, barHeight);
 
     ctx.fillStyle = "white";
