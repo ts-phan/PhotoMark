@@ -17,7 +17,7 @@ cameraInput.addEventListener('change', async (event) => {
     img.src = imgURL;
 
     img.onload = async () => {
-        // 1. Recadrage au ratio de l'écran (Story/Plein écran)
+        // 1. Recadrage au ratio de l'écran
         const screenRatio = window.innerHeight / window.innerWidth;
         const imgRatio = img.height / img.width;
 
@@ -34,27 +34,37 @@ cameraInput.addEventListener('change', async (event) => {
 
         canvas.width = sourceWidth;
         canvas.height = sourceHeight;
+        
+        // On dessine la photo immédiatement
         ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
 
-        // 2. Récupération des données
+        // 2. Préparation des données par défaut
         const now = new Date();
         let cityStr = "Recherche localisation...";
         let lat = 0, lon = 0;
         let mapTileImg = null;
 
+        // 3. Récupération des données AVEC sécurité anti-blocage
         try {
             const coords = await getCoordinates();
             lat = coords.latitude;
             lon = coords.longitude;
-            cityStr = await getCity(lat, lon); 
-            // Récupère l'image de la mini-carte
-            mapTileImg = await getMapTile(lat, lon);
+            
+            // On lance la recherche de la ville et de la carte en parallèle pour aller plus vite
+            const [fetchedCity, fetchedMap] = await Promise.all([
+                getCity(lat, lon),
+                getMapTile(lat, lon)
+            ]);
+            
+            cityStr = fetchedCity;
+            mapTileImg = fetchedMap;
+
         } catch (error) {
-            console.error("Erreur GPS", error);
+            console.warn("Avertissement GPS/Réseau :", error);
             cityStr = "Localisation indisponible";
         }
 
-        // 3. Dessin du nouveau design sur la photo
+        // 4. Dessin final par-dessus la photo
         drawTextOnCanvas(now, cityStr, lat, lon, mapTileImg);
         
         statusDiv.innerText = "";
@@ -62,37 +72,52 @@ cameraInput.addEventListener('change', async (event) => {
     };
 });
 
-// --- API ET UTILITAIRES ---
+// --- API ET UTILITAIRES (SÉCURISÉS AVEC TIMEOUTS) ---
 
 function getCoordinates() {
     return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) reject("Géolocalisation non supportée");
+        if (!navigator.geolocation) {
+            reject("Géolocalisation non supportée");
+            return;
+        }
         navigator.geolocation.getCurrentPosition(
             (pos) => resolve(pos.coords),
-            (err) => reject(err),
-            { enableHighAccuracy: true }
+            (err) => reject(err.message),
+            { 
+                enableHighAccuracy: true, 
+                timeout: 5000, // CRUCIAL : Stoppe la recherche au bout de 5 secondes max
+                maximumAge: 10000 
+            }
         );
     });
 }
 
-// Fonction modifiée pour ne récupérer que la ville
 async function getCity(lat, lon) {
     try {
+        // Ajout d'un système d'abandon si l'API met trop de temps (AbortController)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 secondes max
+
         const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
         const response = await fetch(url, {
-            headers: { 'User-Agent': 'PhotoPWA/1.0' }
+            headers: { 'User-Agent': 'PhotoPWA/1.0' },
+            signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
+
+        if (!response.ok) throw new Error("Erreur serveur API");
         const data = await response.json();
+        
         return data.address.city || data.address.town || data.address.village || data.address.municipality || "Ville inconnue";
     } catch (error) {
+        console.warn("Erreur Ville:", error);
         return "Localisation indisponible";
     }
 }
 
-// NOVEAU : Fonction pour récupérer une image de carte OpenStreetMap
 function getMapTile(lat, lon, zoom = 15) {
     return new Promise((resolve) => {
-        // Formules mathématiques pour convertir le GPS en coordonnées d'image (tuile de carte)
         const n = Math.pow(2, zoom);
         const x = Math.floor(n * ((lon + 180) / 360));
         const latRad = lat * Math.PI / 180;
@@ -101,9 +126,23 @@ function getMapTile(lat, lon, zoom = 15) {
         const url = `https://a.tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
 
         const img = new Image();
-        img.crossOrigin = "anonymous"; // Indispensable pour pouvoir sauvegarder l'image finale
-        img.onload = () => resolve(img);
-        img.onerror = () => resolve(null);
+        img.crossOrigin = "anonymous";
+        
+        // Failsafe : si l'image met plus de 4 secondes à charger, on force l'annulation
+        const timer = setTimeout(() => {
+            img.src = ""; 
+            resolve(null);
+        }, 4000);
+
+        img.onload = () => {
+            clearTimeout(timer);
+            resolve(img);
+        };
+        img.onerror = () => {
+            clearTimeout(timer);
+            resolve(null);
+        };
+        
         img.src = url;
     });
 }
@@ -111,21 +150,18 @@ function getMapTile(lat, lon, zoom = 15) {
 // --- LE NOUVEAU DESIGN GRAPHIQUE ---
 
 function drawTextOnCanvas(now, city, lat, lon, mapImg) {
-    // Formatage des textes
     const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     const dateStr = now.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
     let dayStr = now.toLocaleDateString('fr-FR', { weekday: 'short' });
-    dayStr = dayStr.charAt(0).toUpperCase() + dayStr.slice(1); // Majuscule (ex: Ven)
+    dayStr = dayStr.charAt(0).toUpperCase() + dayStr.slice(1);
     
-    // Formatage GPS
     const latStr = (lat !== 0) ? lat.toFixed(6) + "°N" : "N/A";
     const lonStr = (lon !== 0) ? lon.toFixed(6) + "°E" : "N/A";
     const coordStr = `Coordonnée: ${latStr}, ${lonStr}`;
 
     const padding = canvas.width * 0.04;
-    const baseY = canvas.height - padding; // Point de départ en bas à gauche
+    const baseY = canvas.height - padding;
 
-    // Ombre portée pour remplacer la barre noire et rendre le texte lisible partout
     ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
     ctx.shadowBlur = 6;
     ctx.shadowOffsetX = 1;
@@ -133,26 +169,22 @@ function drawTextOnCanvas(now, city, lat, lon, mapImg) {
     ctx.fillStyle = "white";
     ctx.textBaseline = "bottom";
 
-    // 1. Les Coordonnées (Tout en bas)
     ctx.font = `${canvas.height * 0.018}px sans-serif`;
     ctx.fillText(coordStr, padding, baseY);
 
-    // 2. La Ville (Au-dessus des coordonnées)
     const cityY = baseY - (canvas.height * 0.03);
     ctx.font = `${canvas.height * 0.022}px sans-serif`;
     ctx.fillText(city, padding, cityY);
 
-    // 3. L'Heure (En grand, au-dessus de la ville)
     const timeY = cityY - (canvas.height * 0.015);
     ctx.font = `bold ${canvas.height * 0.065}px "Arial Narrow", sans-serif`;
     ctx.fillText(timeStr, padding, timeY);
 
-    // 4. La Ligne Rouge de séparation
     const timeWidth = ctx.measureText(timeStr).width;
     const lineX = padding + timeWidth + (canvas.width * 0.025);
     
-    ctx.shadowColor = "transparent"; // On retire l'ombre pour la ligne
-    ctx.strokeStyle = "#e74c3c"; // Rouge
+    ctx.shadowColor = "transparent";
+    ctx.strokeStyle = "#e74c3c";
     ctx.lineWidth = canvas.width * 0.005;
     const lineTop = timeY - (canvas.height * 0.055);
     ctx.beginPath();
@@ -160,7 +192,6 @@ function drawTextOnCanvas(now, city, lat, lon, mapImg) {
     ctx.lineTo(lineX, lineTop);
     ctx.stroke();
 
-    // 5. La Date et le Jour (À droite de la ligne rouge)
     ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
     ctx.fillStyle = "white";
     ctx.textBaseline = "top";
@@ -170,22 +201,18 @@ function drawTextOnCanvas(now, city, lat, lon, mapImg) {
     ctx.fillText(dateStr, dateX, lineTop);
     ctx.fillText(dayStr, dateX, lineTop + (canvas.height * 0.028));
 
-    // 6. La Vignette de la Carte (En bas à droite)
     if (mapImg) {
-        const mapSize = canvas.width * 0.22; // Taille de la carte (22% de la largeur de l'écran)
+        const mapSize = canvas.width * 0.22;
         const mapX = canvas.width - padding - mapSize;
         const mapY = canvas.height - padding - mapSize;
 
-        // Bordure blanche
         ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
         ctx.fillStyle = "white";
         ctx.fillRect(mapX - 3, mapY - 3, mapSize + 6, mapSize + 6);
 
-        // Dessin de la carte OSM
         ctx.shadowColor = "transparent";
         ctx.drawImage(mapImg, mapX, mapY, mapSize, mapSize);
 
-        // Point de localisation (Pin Bleu façon iOS)
         ctx.fillStyle = "#007AFF"; 
         ctx.strokeStyle = "white";
         ctx.lineWidth = 2;
@@ -219,5 +246,5 @@ saveBtn.addEventListener('click', async () => {
             link.click();
             URL.revokeObjectURL(link.href);
         }
-    }, 'image/jpeg', 0.95); // Qualité augmentée à 95% pour un meilleur rendu
+    }, 'image/jpeg', 0.95);
 });
