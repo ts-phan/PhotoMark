@@ -6,344 +6,392 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="GeoSnap">
-  <meta name="theme-color" content="#0A0A0F">
+  <meta name="theme-color" content="#000000">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <title>GeoSnap</title>
   <style>
     :root {
-      --bg:      #0A0A0F;
-      --surf:    #13131A;
-      --surf2:   #1C1C27;
-      --red:     #E8202A;
-      --red-dim: rgba(232,32,42,0.15);
-      --white:   #F0F0F5;
-      --muted:   #5A5A72;
-      --green:   #22c55e;
-      --mono:    "SF Mono","Fira Code","Courier New",monospace;
-      --sans:    -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      --red:   #E8202A;
+      --white: #F0F0F5;
+      --muted: rgba(255,255,255,0.55);
+      --surf:  rgba(15,15,20,0.82);
+      --sans:  -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      --mono:  "SF Mono","Fira Code","Courier New",monospace;
     }
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    html,body{height:100%;overflow:hidden}
-    body{font-family:var(--sans);background:var(--bg);color:var(--white);display:flex;flex-direction:column}
-
-    /* ── HEADER ── */
-    header{
-      flex-shrink:0;
-      padding: 14px 20px 10px;
-      padding-top: max(14px, env(safe-area-inset-top) + 8px);
-      display:flex;align-items:center;justify-content:space-between;
-      background:var(--bg);z-index:20;
-    }
-    .logo{display:flex;align-items:center;gap:9px;font-size:19px;font-weight:700;letter-spacing:-0.4px}
-    .logo-dot{width:9px;height:9px;background:var(--red);border-radius:50%;box-shadow:0 0 7px var(--red)}
-    .logo span{color:var(--red)}
-    .header-right{display:flex;align-items:center;gap:8px}
-    #gps-badge{
-      font-family:var(--mono);font-size:10px;color:var(--muted);
-      background:var(--surf2);padding:4px 9px;border-radius:20px;
-      transition:color .3s,border-color .3s;border:1px solid transparent;
-    }
-    #gps-badge.active{color:#4ade80;border-color:rgba(74,222,128,.3)}
-    #gps-badge.error{color:var(--red);border-color:var(--red-dim)}
-    #gallery-btn{
-      background:var(--surf2);border:1px solid var(--surf2);color:var(--white);
-      font-size:18px;width:34px;height:34px;border-radius:10px;cursor:pointer;
-      display:flex;align-items:center;justify-content:center;position:relative;
-      -webkit-tap-highlight-color:transparent;
-    }
-    #gallery-count{
-      position:absolute;top:-4px;right:-4px;background:var(--red);color:white;
-      font-size:9px;font-weight:700;min-width:16px;height:16px;border-radius:8px;
-      display:none;align-items:center;justify-content:center;padding:0 3px;
-    }
-    #gallery-count.visible{display:flex}
-
-    /* ── TABS ── */
-    .tab-bar{
-      flex-shrink:0;
-      display:flex;gap:4px;padding:0 20px 10px;
-    }
-    .tab{
-      flex:1;padding:8px;font-size:13px;font-weight:600;border:none;
-      border-radius:10px;cursor:pointer;background:var(--surf2);color:var(--muted);
-      transition:background .2s,color .2s;-webkit-tap-highlight-color:transparent;
-    }
-    .tab.active{background:var(--red);color:white}
-
-    /* ── VIEWS ── */
-    #view-camera,#view-gallery{
-      flex:1;overflow-y:auto;overflow-x:hidden;
-      display:none;
-      padding:0 16px;
-      padding-bottom: max(20px, env(safe-area-inset-bottom) + 12px);
-      -webkit-overflow-scrolling:touch;
-    }
-    #view-camera.active,#view-gallery.active{display:flex;flex-direction:column;gap:14px}
-
-    /* ── VIEWFINDER ── */
-    #vf-wrap{
-      width:100%;flex-shrink:0;
-      background:var(--surf);border-radius:14px;
-      position:relative;overflow:hidden;
-      display:flex;align-items:center;justify-content:center;
-      border:1px solid var(--surf2);
-    }
-    /* ratio dynamique : rempli l'espace dispo */
-    #vf-inner{
-      width:100%;position:relative;
-    }
-    /* La caméra live */
-    #live-video{
-      width:100%;height:100%;object-fit:cover;display:block;
-      border-radius:13px;background:#000;
-    }
-    canvas#annotated{
-      width:100%;height:100%;object-fit:cover;display:none;
-      border-radius:13px;
-    }
-    .vf-corner{
-      position:absolute;width:26px;height:26px;
-      border-color:var(--red);border-style:solid;opacity:.7;z-index:5;pointer-events:none;
-    }
-    .vf-corner.tl{top:12px;left:12px;border-width:2px 0 0 2px}
-    .vf-corner.tr{top:12px;right:12px;border-width:2px 2px 0 0}
-    .vf-corner.bl{bottom:12px;left:12px;border-width:0 0 2px 2px}
-    .vf-corner.br{bottom:12px;right:12px;border-width:0 2px 2px 0}
-
-    /* Placeholder (pas de getUserMedia) */
-    #vf-placeholder{
-      position:absolute;inset:0;display:flex;flex-direction:column;
-      align-items:center;justify-content:center;gap:12px;
-      color:var(--muted);pointer-events:none;z-index:3;
-    }
-    #vf-placeholder.hidden{display:none}
-    .vf-icon{width:60px;height:60px;border-radius:50%;background:var(--surf2);display:flex;align-items:center;justify-content:center;font-size:26px}
-
-    /* ── Bouton déclencheur ── */
-    #shutter-row{display:flex;align-items:center;justify-content:center;gap:20px;flex-shrink:0}
-    #shutter-btn{
-      width:72px;height:72px;border-radius:50%;
-      background:white;border:4px solid rgba(255,255,255,.25);
-      cursor:pointer;-webkit-tap-highlight-color:transparent;
-      transition:transform .1s,background .1s;display:flex;align-items:center;justify-content:center;
-      position:relative;
-    }
-    #shutter-btn::after{
-      content:'';width:56px;height:56px;border-radius:50%;
-      background:white;border:2px solid #ccc;
-      position:absolute;
-    }
-    #shutter-btn:active{transform:scale(.93)}
-    #flip-btn{
-      width:44px;height:44px;border-radius:50%;background:var(--surf2);
-      border:none;font-size:20px;cursor:pointer;-webkit-tap-highlight-color:transparent;
-      transition:transform .3s;
-    }
-    #flip-btn:active{transform:rotate(180deg)}
-    /* label fallback si pas getUserMedia */
-    label#cam-label{display:none}
-    label#cam-label.show-label{display:flex}
-    input[type="file"]{display:none}
-
-    /* ── PROCESSING OVERLAY ── */
-    #processing{
-      display:none;position:absolute;inset:0;
-      background:rgba(10,10,15,.85);align-items:center;justify-content:center;
-      flex-direction:column;gap:14px;backdrop-filter:blur(4px);z-index:10;border-radius:13px;
-    }
-    #processing.active{display:flex}
-    .spinner{width:40px;height:40px;border:3px solid var(--surf2);border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    #processing p{font-size:12px;color:var(--muted);font-family:var(--mono)}
-
-    /* ── META STRIP ── */
-    #meta-strip{
-      display:none;background:var(--surf);border-radius:12px;
-      padding:12px 14px;font-family:var(--mono);font-size:12px;
-      gap:7px;flex-direction:column;border:1px solid var(--surf2);flex-shrink:0;
-    }
-    #meta-strip.visible{display:flex}
-    .meta-row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
-    .meta-label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;padding-top:1px}
-    .meta-val{color:var(--white);text-align:right;word-break:break-word;line-height:1.4}
-    .meta-divider{height:1px;background:var(--surf2)}
-
-    /* ── BOUTONS ACTION ── */
-    .btn-row{display:flex;gap:10px;flex-shrink:0}
-    .btn{
-      flex:1;padding:15px 10px;font-size:14px;font-weight:600;border:none;
-      border-radius:13px;cursor:pointer;display:flex;align-items:center;
-      justify-content:center;gap:7px;transition:opacity .15s,transform .1s;
-      -webkit-tap-highlight-color:transparent;
-    }
-    .btn:active{opacity:.8;transform:scale(.98)}
-    .btn-secondary{background:var(--surf2);color:var(--white)}
-    .btn-save{background:linear-gradient(135deg,#1a6b3c,var(--green));color:white;display:none}
-    .btn-save.visible{display:flex}
-    .btn:disabled{opacity:.4;cursor:default}
-
-    /* ── IOS NOTICE ── */
-    #ios-notice{
-      background:rgba(232,32,42,.07);border:1px solid rgba(232,32,42,.2);
-      border-radius:11px;padding:11px 14px;font-size:12px;color:var(--muted);
-      line-height:1.55;display:none;flex-shrink:0;
-    }
-    #ios-notice strong{color:var(--white)}
-
-    /* ── GALERIE ── */
-    #gallery-empty{
-      flex:1;display:flex;flex-direction:column;align-items:center;
-      justify-content:center;gap:12px;color:var(--muted);padding:40px 0;
-    }
-    #gallery-empty .vf-icon{width:64px;height:64px;font-size:28px}
-    #gallery-grid{
-      display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding-bottom:8px;
-    }
-    .gallery-item{
-      position:relative;aspect-ratio:3/4;border-radius:10px;overflow:hidden;
-      cursor:pointer;background:var(--surf2);
-    }
-    .gallery-item img{width:100%;height:100%;object-fit:cover;display:block}
-    .gallery-item-meta{
-      position:absolute;bottom:0;left:0;right:0;padding:6px 8px;
-      background:linear-gradient(transparent,rgba(0,0,0,.8));
-      font-size:10px;font-family:var(--mono);color:rgba(255,255,255,.8);
-    }
-    .gallery-item-del{
-      position:absolute;top:6px;right:6px;width:26px;height:26px;
-      border-radius:50%;background:rgba(0,0,0,.6);border:none;
-      color:white;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-      -webkit-tap-highlight-color:transparent;
+    *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+    html,body {
+      width:100%; height:100%;
+      overflow:hidden;
+      background:#000;
+      font-family:var(--sans);
+      color:var(--white);
+      /* Fix iOS status bar */
+      padding-top: env(safe-area-inset-top);
     }
 
-    /* ── LIGHTBOX ── */
-    #lightbox{
-      display:none;position:fixed;inset:0;background:rgba(0,0,0,.95);
-      z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:16px;
-    }
-    #lightbox.open{display:flex}
-    #lightbox img{max-width:100%;max-height:80dvh;object-fit:contain;border-radius:10px}
-    #lightbox-close{
-      position:fixed;top:max(16px,env(safe-area-inset-top)+8px);right:20px;
-      background:var(--surf2);border:none;color:white;width:36px;height:36px;
-      border-radius:50%;font-size:18px;cursor:pointer;z-index:101;
-      display:flex;align-items:center;justify-content:center;
-    }
-    #lightbox-share{
-      background:var(--red);color:white;border:none;padding:13px 32px;
-      border-radius:30px;font-size:15px;font-weight:600;cursor:pointer;
+    /* ══════════════════════════════
+       FULLSCREEN STAGE
+    ══════════════════════════════ */
+    #stage {
+      position: fixed;
+      inset: 0;
+      top: env(safe-area-inset-top);
+      bottom: env(safe-area-inset-bottom);
     }
 
-    /* ── TOAST ── */
-    #toast{
-      position:fixed;bottom:max(28px,env(safe-area-inset-bottom)+16px);
-      left:50%;transform:translateX(-50%) translateY(16px);
-      background:var(--surf2);color:var(--white);padding:11px 18px;
-      border-radius:30px;font-size:13px;opacity:0;transition:opacity .3s,transform .3s;
-      white-space:nowrap;z-index:200;border:1px solid rgba(255,255,255,.07);pointer-events:none;
+    /* Live video & canvas = même taille */
+    #live-video, #annotated {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
     }
-    #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-    #toast.success{border-color:rgba(74,222,128,.3)}
-    #toast.error{border-color:rgba(232,32,42,.4)}
+    #annotated {
+      display: none;
+      cursor: pointer;
+    }
+
+    /* ══════════════════════════════
+       OVERLAY HEADER (flottant)
+    ══════════════════════════════ */
+    #overlay-header {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px 12px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, transparent 100%);
+    }
+    .logo {
+      display: flex; align-items: center; gap: 9px;
+      font-size: 18px; font-weight: 700; letter-spacing: -0.3px;
+    }
+    .logo-dot {
+      width: 9px; height: 9px; background: var(--red);
+      border-radius: 50%; box-shadow: 0 0 7px var(--red);
+    }
+    .logo span { color: var(--red); }
+
+    /* Tabs flottants */
+    .tab-group {
+      display: flex; gap: 4px;
+      background: rgba(0,0,0,0.45);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 22px;
+      padding: 3px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .tab {
+      padding: 7px 16px;
+      font-size: 13px; font-weight: 600;
+      border: none; border-radius: 18px;
+      cursor: pointer; color: var(--muted);
+      background: transparent;
+      transition: background .2s, color .2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tab.active { background: var(--red); color: white; }
+
+    /* GPS badge discret */
+    #gps-dot {
+      position: absolute;
+      top: 16px; left: 50%;
+      transform: translateX(-50%);
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #555;
+      transition: background .4s, box-shadow .4s;
+      z-index: 31;
+    }
+    #gps-dot.active { background: #4ade80; box-shadow: 0 0 5px #4ade80; }
+    #gps-dot.error  { background: var(--red); }
+
+    /* ══════════════════════════════
+       OVERLAY BOTTOM (flottant)
+    ══════════════════════════════ */
+    #overlay-bottom {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      padding-bottom: max(28px, env(safe-area-inset-bottom) + 16px);
+      background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%);
+    }
+
+    /* Bouton déclencheur */
+    #shutter-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px 0 8px;
+    }
+    #shutter-btn {
+      width: 74px; height: 74px;
+      border-radius: 50%;
+      background: transparent;
+      border: 3px solid rgba(255,255,255,0.85);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform .1s;
+      position: relative;
+    }
+    #shutter-btn::after {
+      content: '';
+      width: 58px; height: 58px;
+      border-radius: 50%;
+      background: white;
+      position: absolute;
+      transition: transform .1s, background .1s;
+    }
+    #shutter-btn:active { transform: scale(.93); }
+    #shutter-btn:active::after { background: #ccc; }
+    #shutter-btn.hidden { display: none; }
+
+    /* Boutons post-capture */
+    #post-actions {
+      display: none;
+      flex-direction: row;
+      gap: 12px;
+      padding: 12px 24px 4px;
+      width: 100%;
+    }
+    #post-actions.visible { display: flex; }
+    .post-btn {
+      flex: 1;
+      padding: 14px 10px;
+      font-size: 14px; font-weight: 600;
+      border: none; border-radius: 14px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity .15s, transform .1s;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .post-btn:active { opacity: .8; transform: scale(.98); }
+    #btn-retake {
+      background: rgba(30,30,40,0.8);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: white;
+    }
+    #btn-save {
+      background: rgba(34,197,94,0.85);
+      border: 1px solid rgba(34,197,94,0.4);
+      color: white;
+    }
+
+    /* Fallback si pas de getUserMedia */
+    #cam-label-fallback {
+      display: none;
+      padding: 14px 28px;
+      background: var(--red);
+      color: white;
+      font-size: 15px; font-weight: 600;
+      border-radius: 30px;
+      cursor: pointer;
+      margin-bottom: 8px;
+    }
+    #cam-label-fallback.show { display: block; }
+    input[type="file"] { display: none; }
+
+    /* ══════════════════════════════
+       PROCESSING OVERLAY
+    ══════════════════════════════ */
+    #processing {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      align-items: center; justify-content: center;
+      flex-direction: column; gap: 14px;
+      backdrop-filter: blur(3px);
+      z-index: 40;
+    }
+    #processing.active { display: flex; }
+    .spinner {
+      width: 42px; height: 42px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: var(--red);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #processing p { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+    /* ══════════════════════════════
+       VUE GALERIE (par-dessus le stage)
+    ══════════════════════════════ */
+    #view-gallery {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      flex-direction: column;
+      background: #0A0A0F;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    #view-gallery.active { display: flex; }
+
+    #gallery-scroll {
+      flex: 1;
+      padding: 8px 16px;
+      padding-bottom: max(24px, env(safe-area-inset-bottom) + 16px);
+    }
+    #gallery-empty {
+      flex: 1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 12px; color: rgba(255,255,255,0.35);
+      padding: 60px 0;
+    }
+    .empty-icon { font-size: 48px; }
+    #gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .gallery-item {
+      position: relative;
+      aspect-ratio: 3/4;
+      border-radius: 10px;
+      overflow: hidden;
+      cursor: pointer;
+      background: #1C1C27;
+    }
+    .gallery-item img { width:100%; height:100%; object-fit:cover; display:block; }
+    .gallery-item-meta {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 6px 8px;
+      background: linear-gradient(transparent, rgba(0,0,0,.82));
+      font-size: 10px; font-family: var(--mono);
+      color: rgba(255,255,255,.85); line-height: 1.4;
+    }
+    .gallery-del {
+      position: absolute; top: 6px; right: 6px;
+      width: 26px; height: 26px; border-radius: 50%;
+      background: rgba(0,0,0,.65); border: none;
+      color: white; font-size: 11px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── Lightbox ── */
+    #lightbox {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.96); z-index: 100;
+      align-items: center; justify-content: center; flex-direction: column; gap: 18px;
+    }
+    #lightbox.open { display: flex; }
+    #lightbox img { max-width:100%; max-height:78dvh; object-fit:contain; border-radius:10px; }
+    #lb-close {
+      position: fixed; top: max(16px,env(safe-area-inset-top)+8px); right: 20px;
+      background: rgba(30,30,40,.9); border: none; color: white;
+      width: 36px; height: 36px; border-radius: 50%; font-size:17px;
+      cursor: pointer; display:flex; align-items:center; justify-content:center; z-index:101;
+    }
+    #lb-share {
+      background: var(--red); color: white; border: none;
+      padding: 13px 36px; border-radius: 30px;
+      font-size: 15px; font-weight: 600; cursor: pointer;
+    }
+
+    /* ══════════════════════════════
+       TOAST
+    ══════════════════════════════ */
+    #toast {
+      position: fixed;
+      bottom: max(36px, env(safe-area-inset-bottom) + 24px);
+      left: 50%; transform: translateX(-50%) translateY(16px);
+      background: rgba(28,28,40,0.95);
+      color: var(--white);
+      padding: 11px 20px; border-radius: 30px;
+      font-size: 13px; opacity: 0;
+      transition: opacity .3s, transform .3s;
+      white-space: nowrap; z-index: 200;
+      border: 1px solid rgba(255,255,255,.08);
+      pointer-events: none;
+      backdrop-filter: blur(10px);
+    }
+    #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    #toast.success { border-color: rgba(74,222,128,.35); }
+    #toast.error   { border-color: rgba(232,32,42,.4); }
   </style>
 </head>
 <body>
 
-<header>
-  <div class="logo"><div class="logo-dot"></div>Geo<span>Snap</span></div>
-  <div class="header-right">
-    <div id="gps-badge">GPS —</div>
-    <button id="gallery-btn" aria-label="Galerie">
-      🖼
-      <span id="gallery-count"></span>
-    </button>
+<!-- ═══ STAGE PLEIN ÉCRAN ═══ -->
+<div id="stage">
+
+  <!-- Flux caméra live -->
+  <video id="live-video" autoplay playsinline muted></video>
+
+  <!-- Canvas avec annotation (après capture) -->
+  <canvas id="annotated"></canvas>
+
+  <!-- Header flottant -->
+  <div id="overlay-header">
+    <div class="logo">
+      <div class="logo-dot"></div>
+      Geo<span>Snap</span>
+    </div>
+    <div class="tab-group">
+      <button class="tab active" data-view="camera">📷 Caméra</button>
+      <button class="tab" data-view="gallery">🖼 Galerie</button>
+    </div>
   </div>
-</header>
+  <div id="gps-dot"></div>
 
-<div class="tab-bar">
-  <button class="tab active" data-view="camera">📷 Caméra</button>
-  <button class="tab" data-view="gallery">🖼 Galerie</button>
-</div>
+  <!-- Bottom flottant -->
+  <div id="overlay-bottom">
+    <!-- Post-capture : Nouvelle + Enregistrer -->
+    <div id="post-actions">
+      <button id="btn-retake" class="post-btn">🔄 Nouvelle</button>
+      <button id="btn-save"   class="post-btn">💾 Enregistrer</button>
+    </div>
+    <!-- Déclencheur live -->
+    <div id="shutter-wrap">
+      <button id="shutter-btn" aria-label="Prendre une photo"></button>
+    </div>
+    <!-- Fallback -->
+    <label id="cam-label-fallback" for="cameraInput">📷 Prendre une photo</label>
+    <input type="file" accept="image/*" capture="environment" id="cameraInput">
+  </div>
 
-<!-- ═══ VUE CAMÉRA ═══ -->
-<div id="view-camera" class="active">
+  <!-- Overlay processing -->
+  <div id="processing">
+    <div class="spinner"></div>
+    <p id="proc-label">Traitement…</p>
+  </div>
 
-  <div id="vf-wrap">
-    <div id="vf-inner">
-      <video id="live-video" autoplay playsinline muted></video>
-      <canvas id="annotated"></canvas>
-      <div class="vf-corner tl"></div>
-      <div class="vf-corner tr"></div>
-      <div class="vf-corner bl"></div>
-      <div class="vf-corner br"></div>
-      <div id="vf-placeholder" class="hidden">
-        <div class="vf-icon">📷</div>
-        <p>Appuyer pour photographier</p>
+  <!-- Galerie par-dessus le stage -->
+  <div id="view-gallery">
+    <div id="gallery-scroll">
+      <div id="gallery-empty">
+        <div class="empty-icon">📂</div>
+        <p style="font-size:14px">Aucune photo</p>
+        <p style="font-size:12px;opacity:.6">Prenez votre première photo !</p>
       </div>
-      <div id="processing">
-        <div class="spinner"></div>
-        <p id="proc-label">Traitement…</p>
-      </div>
+      <div id="gallery-grid" style="display:none"></div>
     </div>
-  </div>
-
-  <!-- Déclencheur caméra live -->
-  <div id="shutter-row">
-    <button id="flip-btn" title="Retourner la caméra">🔄</button>
-    <button id="shutter-btn" aria-label="Prendre une photo"></button>
-    <div style="width:44px"></div>
-  </div>
-  <!-- Fallback si pas de getUserMedia -->
-  <label id="cam-label" for="cameraInput" class="btn btn-secondary" style="display:none">
-    📷 Prendre une photo
-  </label>
-  <input type="file" accept="image/*" capture="environment" id="cameraInput">
-
-  <div id="meta-strip">
-    <div class="meta-row">
-      <span class="meta-label">Horodatage</span>
-      <span class="meta-val" id="m-time">—</span>
-    </div>
-    <div class="meta-divider"></div>
-    <div class="meta-row">
-      <span class="meta-label">Adresse</span>
-      <span class="meta-val" id="m-addr">—</span>
-    </div>
-    <div class="meta-divider"></div>
-    <div class="meta-row">
-      <span class="meta-label">Coordonnées</span>
-      <span class="meta-val" id="m-coords">—</span>
-    </div>
-  </div>
-
-  <div class="btn-row">
-    <button id="retakeBtn" class="btn btn-secondary">🔄 Nouvelle</button>
-    <button id="saveBtn" class="btn btn-save" aria-label="Enregistrer">💾 Enregistrer</button>
-  </div>
-
-  <div id="ios-notice">
-    <strong>iOS :</strong> Appuyez sur "Enregistrer" puis choisissez <em>«&nbsp;Enregistrer dans Photos&nbsp;»</em>.
-    La photo est aussi sauvegardée dans la galerie GeoSnap ci-dessous.
   </div>
 
 </div>
 
-<!-- ═══ VUE GALERIE ═══ -->
-<div id="view-gallery">
-  <div id="gallery-empty">
-    <div class="vf-icon">📂</div>
-    <p style="font-size:14px">Aucune photo pour l'instant</p>
-    <p style="font-size:12px">Prenez votre première photo !</p>
-  </div>
-  <div id="gallery-grid"></div>
-</div>
-
-<!-- LIGHTBOX -->
+<!-- Lightbox -->
 <div id="lightbox">
-  <button id="lightbox-close">✕</button>
-  <img id="lightbox-img" src="" alt="">
-  <button id="lightbox-share">📤 Partager / Enregistrer</button>
+  <button id="lb-close">✕</button>
+  <img id="lb-img" src="" alt="">
+  <button id="lb-share">📤 Partager / Enregistrer</button>
 </div>
 
 <div id="toast"></div>
@@ -359,12 +407,13 @@ if ('serviceWorker' in navigator) {
 /* ═══════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════ */
-const state = {
+const S = {
   lat:0, lon:0, gpsReady:false,
   city:'', address:'',
   now:null, mapImg:null,
-  stream:null, facingMode:'environment',
+  stream:null,
   currentBlob:null,
+  mode:'camera', // 'camera' | 'preview' | 'gallery'
 };
 
 /* ═══════════════════════════════════════════
@@ -373,178 +422,130 @@ const state = {
 const video       = document.getElementById('live-video');
 const canvas      = document.getElementById('annotated');
 const ctx         = canvas.getContext('2d');
-const saveBtn     = document.getElementById('saveBtn');
-const retakeBtn   = document.getElementById('retakeBtn');
 const shutterBtn  = document.getElementById('shutter-btn');
-const flipBtn     = document.getElementById('flip-btn');
-const camLabel    = document.getElementById('cam-label');
+const shutterWrap = document.getElementById('shutter-wrap');
+const postActions = document.getElementById('post-actions');
+const btnRetake   = document.getElementById('btn-retake');
+const btnSave     = document.getElementById('btn-save');
+const camFallback = document.getElementById('cam-label-fallback');
 const cameraInput = document.getElementById('cameraInput');
-const vfPlaceholder = document.getElementById('vf-placeholder');
+const gpsDot      = document.getElementById('gps-dot');
 const processing  = document.getElementById('processing');
 const procLabel   = document.getElementById('proc-label');
-const metaStrip   = document.getElementById('meta-strip');
-const iosNotice   = document.getElementById('ios-notice');
-const gpsBadge    = document.getElementById('gps-badge');
-const galleryGrid = document.getElementById('gallery-grid');
-const galleryEmpty= document.getElementById('gallery-empty');
-const galleryCount= document.getElementById('gallery-count');
 
 /* ═══════════════════════════════════════════
-   VIEWFINDER SIZING — remplit l'espace visible
-═══════════════════════════════════════════ */
-function sizeViewfinder() {
-  const vfWrap  = document.getElementById('vf-wrap');
-  const vfInner = document.getElementById('vf-inner');
-  const vw = vfWrap.parentElement.clientWidth;
-  // Utilise le ratio réel de l'écran
-  const ratio = window.innerHeight / window.innerWidth;
-  const h = Math.round(vw * ratio);
-  vfInner.style.height = h + 'px';
-  canvas.width  = vw * window.devicePixelRatio;
-  canvas.height = h  * window.devicePixelRatio;
-  canvas.style.width  = vw + 'px';
-  canvas.style.height = h  + 'px';
-}
-sizeViewfinder();
-window.addEventListener('resize', sizeViewfinder);
-
-/* ═══════════════════════════════════════════
-   GPS — démarrage immédiat
+   GPS
 ═══════════════════════════════════════════ */
 function initGPS() {
-  if (!navigator.geolocation) { setGPS('error','GPS n/a'); return; }
-  setGPS('','GPS…');
+  if (!navigator.geolocation) { gpsDot.className='error'; return; }
   navigator.geolocation.watchPosition(
     pos => {
-      state.lat = pos.coords.latitude;
-      state.lon = pos.coords.longitude;
-      state.gpsReady = true;
-      setGPS('active', `${state.lat.toFixed(4)}° ${state.lon.toFixed(4)}°`);
-      geocode(state.lat, state.lon).then(r => {
-        state.city    = r.city;
-        state.address = r.address;
-      });
+      S.lat = pos.coords.latitude;
+      S.lon = pos.coords.longitude;
+      S.gpsReady = true;
+      gpsDot.className = 'active';
+      geocode(S.lat, S.lon).then(r => { S.city=r.city; S.address=r.address; });
     },
-    () => setGPS('error','GPS refusé'),
+    () => { gpsDot.className='error'; },
     { enableHighAccuracy:true, maximumAge:15000, timeout:10000 }
   );
-}
-function setGPS(cls, txt) {
-  gpsBadge.textContent = txt;
-  gpsBadge.className = cls;
 }
 initGPS();
 
 /* ═══════════════════════════════════════════
-   CAMÉRA LIVE (getUserMedia)
+   CAMERA — caméra arrière uniquement
 ═══════════════════════════════════════════ */
-async function startCamera(facing='environment') {
-  if (state.stream) {
-    state.stream.getTracks().forEach(t => t.stop());
-    state.stream = null;
-  }
+async function startCamera() {
   try {
-    const constraints = {
-      video: { facingMode: { ideal: facing }, width:{ ideal:1920 }, height:{ ideal:2560 } },
+    if (S.stream) { S.stream.getTracks().forEach(t=>t.stop()); S.stream=null; }
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { exact:'environment' }, width:{ideal:1920}, height:{ideal:2560} },
       audio: false
-    };
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    state.stream = stream;
-    state.facingMode = facing;
+    });
+    S.stream = stream;
     video.srcObject = stream;
     video.style.display = 'block';
     canvas.style.display = 'none';
-    vfPlaceholder.classList.add('hidden');
-    shutterBtn.style.display = 'flex';
-    flipBtn.style.display    = 'flex';
-    camLabel.style.display   = 'none';
+    camFallback.classList.remove('show');
+    shutterWrap.style.display = 'flex';
   } catch(e) {
-    // Fallback : input file
-    video.style.display = 'none';
-    vfPlaceholder.classList.remove('hidden');
-    shutterBtn.style.display = 'none';
-    flipBtn.style.display    = 'none';
-    camLabel.style.display   = 'flex';
+    // Essai sans 'exact' (certains appareils)
+    try {
+      if (S.stream) { S.stream.getTracks().forEach(t=>t.stop()); S.stream=null; }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode:'environment', width:{ideal:1920}, height:{ideal:2560} },
+        audio: false
+      });
+      S.stream = stream;
+      video.srcObject = stream;
+      video.style.display = 'block';
+      canvas.style.display = 'none';
+      camFallback.classList.remove('show');
+      shutterWrap.style.display = 'flex';
+    } catch(e2) {
+      // Fallback input file
+      video.style.display = 'none';
+      camFallback.classList.add('show');
+      shutterWrap.style.display = 'none';
+    }
   }
 }
-startCamera('environment');
-
-flipBtn.addEventListener('click', () => {
-  const next = state.facingMode === 'environment' ? 'user' : 'environment';
-  startCamera(next);
-});
+startCamera();
 
 /* ═══════════════════════════════════════════
-   CAPTURE depuis le flux live
+   CAPTURE
 ═══════════════════════════════════════════ */
-shutterBtn.addEventListener('click', () => captureFromVideo());
-
-async function captureFromVideo() {
-  state.now = new Date();
-  showProcessing('Capture…');
-
-  // Dessine la frame courante dans un canvas off-screen
-  const offW = video.videoWidth  || 1080;
-  const offH = video.videoHeight || 1920;
-  const off  = document.createElement('canvas');
-  off.width  = offW;
-  off.height = offH;
-  const offCtx = off.getContext('2d');
-  // Miroir si caméra frontale
-  if (state.facingMode === 'user') {
-    offCtx.translate(offW, 0);
-    offCtx.scale(-1, 1);
-  }
-  offCtx.drawImage(video, 0, 0, offW, offH);
-
-  await processImage(off);
-}
-
-/* Fallback input file */
+shutterBtn.addEventListener('click', captureFromVideo);
 cameraInput.addEventListener('change', async e => {
   const file = e.target.files[0];
   if (!file) return;
-  state.now = new Date();
+  S.now = new Date();
   showProcessing('Lecture…');
   const url = URL.createObjectURL(file);
   const img = await loadImage(url);
   URL.revokeObjectURL(url);
   const off = document.createElement('canvas');
-  off.width  = img.naturalWidth;
-  off.height = img.naturalHeight;
-  off.getContext('2d').drawImage(img, 0, 0);
-  cameraInput.value = '';
+  off.width=img.naturalWidth; off.height=img.naturalHeight;
+  off.getContext('2d').drawImage(img,0,0);
+  cameraInput.value='';
   await processImage(off);
 });
 
+async function captureFromVideo() {
+  S.now = new Date();
+  showProcessing('Capture…');
+  const W = video.videoWidth  || 1080;
+  const H = video.videoHeight || 1920;
+  const off = document.createElement('canvas');
+  off.width=W; off.height=H;
+  off.getContext('2d').drawImage(video,0,0,W,H);
+  await processImage(off);
+}
+
 /* ═══════════════════════════════════════════
-   PIPELINE DE TRAITEMENT
+   PIPELINE
 ═══════════════════════════════════════════ */
-async function processImage(srcCanvas) {
+async function processImage(src) {
   try {
     procLabel.textContent = 'Recadrage…';
-    cropAndDraw(srcCanvas);
+    fitCanvasToScreen(src);
 
-    procLabel.textContent = 'Carte GPS…';
-    state.mapImg = state.gpsReady ? await getMapTile(state.lat, state.lon) : null;
+    procLabel.textContent = 'Carte…';
+    S.mapImg = S.gpsReady ? await getMapTile(S.lat, S.lon) : null;
 
     procLabel.textContent = 'Annotation…';
     drawAnnotations();
 
-    // Blob pour galerie & partage
-    state.currentBlob = await canvasToBlob(canvas);
+    S.currentBlob = await canvasToBlob(canvas);
+    await saveToGallery(S.currentBlob, S.now);
 
-    // Affichage
-    video.style.display = 'none';
-    canvas.style.display = 'block';
+    // Afficher le résultat
+    video.style.display   = 'none';
+    canvas.style.display  = 'block';
+    shutterWrap.style.display = 'none';
+    postActions.classList.add('visible');
     hideProcessing();
-    saveBtn.classList.add('visible');
-    metaStrip.classList.add('visible');
-    iosNotice.style.display = 'block';
-    updateMetaStrip();
-
-    // Auto-save galerie locale
-    await saveToGallery(state.currentBlob, state.now);
+    S.mode = 'preview';
 
   } catch(err) {
     hideProcessing();
@@ -554,150 +555,121 @@ async function processImage(srcCanvas) {
 }
 
 /* ═══════════════════════════════════════════
-   CROP — remplit le canvas (ratio écran réel)
+   CANVAS — remplit l'écran exactement
 ═══════════════════════════════════════════ */
-function cropAndDraw(src) {
-  const W = canvas.width;   // déjà en pixels physiques
-  const H = canvas.height;
-  const canvasRatio = W / H;
-  const srcRatio    = src.width / src.height;
+function fitCanvasToScreen(src) {
+  const sw = window.innerWidth;
+  const sh = window.innerHeight;
+  const dpr = window.devicePixelRatio || 1;
 
-  let sx=0, sy=0, sw=src.width, sh=src.height;
-  if (srcRatio > canvasRatio) {
-    sw = src.height * canvasRatio;
-    sx = (src.width - sw) / 2;
-  } else {
-    sh = src.width / canvasRatio;
-    sy = (src.height - sh) / 2;
-  }
-  ctx.clearRect(0, 0, W, H);
-  ctx.drawImage(src, sx, sy, sw, sh, 0, 0, W, H);
+  canvas.style.width  = sw + 'px';
+  canvas.style.height = sh + 'px';
+  canvas.width  = sw * dpr;
+  canvas.height = sh * dpr;
+
+  // Crop centré pour remplir
+  const canvasR = canvas.width / canvas.height;
+  const srcR    = src.width / src.height;
+  let sx=0, sy=0, sw2=src.width, sh2=src.height;
+  if (srcR > canvasR) { sw2=src.height*canvasR; sx=(src.width-sw2)/2; }
+  else                { sh2=src.width/canvasR;  sy=(src.height-sh2)/2; }
+
+  ctx.drawImage(src, sx, sy, sw2, sh2, 0, 0, canvas.width, canvas.height);
 }
 
 /* ═══════════════════════════════════════════
-   GEOCODING — adresse complète
-═══════════════════════════════════════════ */
-async function geocode(lat, lon) {
-  try {
-    const ctrl = new AbortController();
-    setTimeout(() => ctrl.abort(), 6000);
-    const r = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`,
-      { headers:{'Accept-Language':'fr','User-Agent':'GeoSnapPWA/3.0'}, signal:ctrl.signal }
-    );
-    if (!r.ok) throw new Error();
-    const d = await r.json();
-    const a = d.address;
-    const city = a.city || a.town || a.village || a.municipality || '';
-    const road = a.road || a.pedestrian || a.footway || '';
-    const num  = a.house_number || '';
-    const postcode = a.postcode || '';
-    const fullAddr = [num && road ? `${num} ${road}` : road, postcode && city ? `${postcode} ${city}` : city]
-      .filter(Boolean).join(', ');
-    return { city, address: fullAddr || d.display_name?.split(',').slice(0,3).join(',') || 'Adresse inconnue' };
-  } catch {
-    return { city:'', address:'Adresse indisponible' };
-  }
-}
-
-/* ═══════════════════════════════════════════
-   MAP TILE
-═══════════════════════════════════════════ */
-function getMapTile(lat, lon, zoom=16) {
-  return new Promise(resolve => {
-    const n = 2**zoom;
-    const x = Math.floor(n*(lon+180)/360);
-    const lr= lat*Math.PI/180;
-    const y = Math.floor(n*(1-Math.log(Math.tan(lr)+1/Math.cos(lr))/Math.PI)/2);
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    const t = setTimeout(()=>resolve(null), 5000);
-    img.onload  = ()=>{ clearTimeout(t); resolve(img); };
-    img.onerror = ()=>{ clearTimeout(t); resolve(null); };
-    img.src = `https://a.tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
-  });
-}
-
-/* ═══════════════════════════════════════════
-   DESSIN — annotations sur canvas physique
+   ANNOTATIONS — flottantes sur la photo
 ═══════════════════════════════════════════ */
 function drawAnnotations() {
   const W = canvas.width, H = canvas.height;
-  const now = state.now;
+  const now = state_now();
   const dpr = window.devicePixelRatio || 1;
 
-  // Dégradé bas
-  const grad = ctx.createLinearGradient(0, H*.5, 0, H);
-  grad.addColorStop(0,'rgba(0,0,0,0)');
-  grad.addColorStop(1,'rgba(0,0,0,0.85)');
+  // Dégradé bas — zone annotation
+  const grad = ctx.createLinearGradient(0, H*0.48, 0, H);
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.88)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
 
   const pad  = W * 0.045;
-  const baseY= H - pad;
+  // Réserve le bas pour les boutons overlay
+  const bottomReserve = (80 + Math.max(28, 16)) * dpr; // hauteur approx overlay bottom
+  const baseY = H - bottomReserve - pad * 0.5;
 
-  function shadow(on) {
-    if (on) { ctx.shadowColor='rgba(0,0,0,.9)'; ctx.shadowBlur=8*dpr; ctx.shadowOffsetX=ctx.shadowOffsetY=dpr; }
-    else     { ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetX=ctx.shadowOffsetY=0; }
+  function sh(on) {
+    if (on) { ctx.shadowColor='rgba(0,0,0,.95)'; ctx.shadowBlur=9*dpr; ctx.shadowOffsetX=ctx.shadowOffsetY=1*dpr; }
+    else    { ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetX=ctx.shadowOffsetY=0; }
   }
 
-  ctx.fillStyle   = 'rgba(255,255,255,0.92)';
-  ctx.textBaseline= 'bottom';
+  ctx.fillStyle = 'rgba(255,255,255,0.93)';
+  ctx.textBaseline = 'bottom';
 
-  // Coordonnées
-  shadow(true);
-  ctx.font = `${H*.017}px "SF Mono","Fira Code",monospace`;
-  const coordStr = state.gpsReady
-    ? `${state.lat.toFixed(6)}°N  ${state.lon.toFixed(6)}°E`
+  // ── Coordonnées ──
+  sh(true);
+  ctx.font = `${H*0.016}px "SF Mono","Fira Code",monospace`;
+  const coordStr = S.gpsReady
+    ? `${S.lat.toFixed(6)}°N   ${S.lon.toFixed(6)}°E`
     : 'Coordonnées indisponibles';
   ctx.fillText(coordStr, pad, baseY);
 
-  // Adresse complète
-  const addrY = baseY - H*.028;
-  ctx.font = `${H*.019}px "SF Mono","Fira Code",monospace`;
-  ctx.fillText(state.address || state.city || 'Adresse indisponible', pad, addrY);
+  // ── Adresse ──
+  const addrY = baseY - H*0.026;
+  ctx.font = `${H*0.019}px "SF Mono","Fira Code",monospace`;
+  const addrStr = S.address || S.city || 'Adresse indisponible';
+  // Tronquer si trop long (canvas width)
+  ctx.fillText(truncateText(ctx, addrStr, W - pad*2 - W*0.28), pad, addrY);
 
-  // Heure + secondes
-  const timeStr = now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
-  const timeY   = addrY - H*.014;
-  ctx.font = `700 ${H*.068}px "Arial Narrow",Arial,sans-serif`;
+  // ── Heure + secondes ──
+  const timeStr = now.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const timeY   = addrY - H*0.013;
+  ctx.font = `700 ${H*0.068}px "Arial Narrow",Arial,sans-serif`;
   ctx.fillText(timeStr, pad, timeY);
 
-  // Ligne rouge
+  // ── Ligne rouge ──
   const tw    = ctx.measureText(timeStr).width;
-  const lineX = pad + tw + W*.025;
-  shadow(false);
-  ctx.strokeStyle='#E8202A'; ctx.lineWidth=W*.005; ctx.lineCap='round';
-  const lineTop = timeY - H*.058;
-  ctx.beginPath(); ctx.moveTo(lineX, timeY); ctx.lineTo(lineX, lineTop); ctx.stroke();
+  const lineX = pad + tw + W*0.024;
+  sh(false);
+  ctx.strokeStyle='#E8202A'; ctx.lineWidth=W*0.005; ctx.lineCap='round';
+  const lineTop = timeY - H*0.056;
+  ctx.beginPath(); ctx.moveTo(lineX,timeY); ctx.lineTo(lineX,lineTop); ctx.stroke();
 
-  // Date & Jour
-  shadow(true);
-  ctx.fillStyle='rgba(255,255,255,.92)'; ctx.textBaseline='top';
-  const dateX   = lineX + W*.02;
-  const dateStr = now.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
-  let dayStr    = now.toLocaleDateString('fr-FR', { weekday:'short' });
-  dayStr = dayStr[0].toUpperCase() + dayStr.slice(1);
-  ctx.font = `${H*.021}px -apple-system,BlinkMacSystemFont,sans-serif`;
+  // ── Date & Jour ──
+  sh(true);
+  ctx.fillStyle='rgba(255,255,255,.93)'; ctx.textBaseline='top';
+  const dateX   = lineX + W*0.02;
+  const dateStr = now.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
+  let   dayStr  = now.toLocaleDateString('fr-FR',{weekday:'short'});
+  dayStr = dayStr[0].toUpperCase()+dayStr.slice(1);
+  ctx.font = `${H*0.021}px -apple-system,BlinkMacSystemFont,sans-serif`;
   ctx.fillText(dateStr, dateX, lineTop);
-  ctx.fillText(dayStr,  dateX, lineTop + H*.028);
+  ctx.fillText(dayStr,  dateX, lineTop+H*0.028);
 
-  // Miniature carte
-  if (state.mapImg) {
-    const mSize = W*.22;
+  // ── Miniature carte ──
+  if (S.mapImg) {
+    const mSize = W*0.21;
     const mX    = W - pad - mSize;
-    const mY    = H - pad - mSize;
-    shadow(false);
-    ctx.shadowColor='rgba(0,0,0,.5)'; ctx.shadowBlur=10*dpr;
+    const mY    = baseY - mSize - H*0.005;
+    sh(false);
+    ctx.shadowColor='rgba(0,0,0,.55)'; ctx.shadowBlur=10*dpr;
     ctx.fillStyle='white';
-    rrect(mX-3, mY-3, mSize+6, mSize+6, mSize*.07+2); ctx.fill();
-    shadow(false);
-    ctx.save(); rrect(mX, mY, mSize, mSize, mSize*.07); ctx.clip();
-    ctx.drawImage(state.mapImg, mX, mY, mSize, mSize);
+    rrect(mX-3,mY-3,mSize+6,mSize+6,mSize*.07+2); ctx.fill();
+    sh(false);
+    ctx.save(); rrect(mX,mY,mSize,mSize,mSize*.07); ctx.clip();
+    ctx.drawImage(S.mapImg,mX,mY,mSize,mSize);
     ctx.restore();
-    ctx.fillStyle='#E8202A'; ctx.strokeStyle='white'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.arc(mX+mSize/2, mY+mSize/2, mSize*.085, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#E8202A'; ctx.strokeStyle='white'; ctx.lineWidth=2.5*dpr;
+    ctx.beginPath(); ctx.arc(mX+mSize/2,mY+mSize/2,mSize*.085,0,Math.PI*2); ctx.fill(); ctx.stroke();
   }
+}
+
+function state_now() { return S.now || new Date(); }
+
+function truncateText(ctx, text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let t = text;
+  while (t.length > 4 && ctx.measureText(t+'…').width > maxWidth) t = t.slice(0,-1);
+  return t+'…';
 }
 
 function rrect(x,y,w,h,r){
@@ -709,234 +681,202 @@ function rrect(x,y,w,h,r){
 }
 
 /* ═══════════════════════════════════════════
-   META STRIP
+   RETAKE — retour immédiat caméra
 ═══════════════════════════════════════════ */
-function updateMetaStrip() {
-  const now = state.now;
-  document.getElementById('m-time').textContent =
-    now.toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})
-    +' · '+ now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  document.getElementById('m-addr').textContent   = state.address || state.city || '—';
-  document.getElementById('m-coords').textContent = state.gpsReady
-    ? `${state.lat.toFixed(6)}°N · ${state.lon.toFixed(6)}°E`
-    : 'Indisponible';
+btnRetake.addEventListener('click', goCamera);
+
+function goCamera() {
+  canvas.style.display  = 'none';
+  postActions.classList.remove('visible');
+  S.currentBlob = null; S.mode = 'camera';
+  if (S.stream) {
+    video.style.display = 'block';
+    shutterWrap.style.display = 'flex';
+  } else {
+    camFallback.classList.add('show');
+  }
 }
 
 /* ═══════════════════════════════════════════
-   RETAKE
+   SAVE / SHARE
 ═══════════════════════════════════════════ */
-retakeBtn.addEventListener('click', () => {
-  canvas.style.display = 'none';
-  saveBtn.classList.remove('visible');
-  metaStrip.classList.remove('visible');
-  iosNotice.style.display = 'none';
-  state.currentBlob = null;
-  if (state.stream) {
-    video.style.display = 'block';
-  } else {
-    vfPlaceholder.classList.remove('hidden');
-  }
-});
-
-/* ═══════════════════════════════════════════
-   SAVE — Share API + galerie locale
-═══════════════════════════════════════════ */
-saveBtn.addEventListener('click', async () => {
-  if (!state.currentBlob) return;
-  saveBtn.disabled = true;
-  await shareBlob(state.currentBlob, state.now);
-  saveBtn.disabled = false;
+btnSave.addEventListener('click', async () => {
+  if (!S.currentBlob) return;
+  btnSave.disabled = true;
+  await shareBlob(S.currentBlob, S.now);
+  btnSave.disabled = false;
 });
 
 async function shareBlob(blob, ts) {
   const name = `GeoSnap_${ts.toISOString().replace(/[:.]/g,'-').slice(0,19)}.jpg`;
-  const file = new File([blob], name, { type:'image/jpeg' });
-  if (navigator.canShare && navigator.canShare({ files:[file] })) {
-    try {
-      await navigator.share({ files:[file], title:'GeoSnap' });
-      showToast('✅ Partagé', 'success');
-      return;
-    } catch(e) {
-      if (e.name === 'AbortError') return;
-    }
+  const file = new File([blob], name, {type:'image/jpeg'});
+  if (navigator.canShare && navigator.canShare({files:[file]})) {
+    try { await navigator.share({files:[file],title:'GeoSnap'}); showToast('✅ Partagé','success'); return; }
+    catch(e) { if (e.name==='AbortError') return; }
   }
-  // Fallback download
   const url = URL.createObjectURL(blob);
   const a = Object.assign(document.createElement('a'),{href:url,download:name});
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
-  showToast('⬇️ Téléchargée', 'success');
+  showToast('⬇️ Téléchargée','success');
 }
 
 /* ═══════════════════════════════════════════
-   INDEXEDDB GALLERY
+   GEOCODING
 ═══════════════════════════════════════════ */
-const DB_NAME='GeoSnapDB', DB_VER=1, STORE='photos';
-let db;
-
-function openDB() {
-  return new Promise((res,rej) => {
-    const req = indexedDB.open(DB_NAME, DB_VER);
-    req.onupgradeneeded = e => e.target.result.createObjectStore(STORE, {keyPath:'id',autoIncrement:true});
-    req.onsuccess = e => { db=e.target.result; res(db); };
-    req.onerror   = e => rej(e.target.error);
-  });
+async function geocode(lat,lon) {
+  try {
+    const ctrl=new AbortController(); setTimeout(()=>ctrl.abort(),6000);
+    const r=await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`,
+      {headers:{'Accept-Language':'fr','User-Agent':'GeoSnapPWA/3.0'},signal:ctrl.signal}
+    );
+    if(!r.ok) throw 0;
+    const d=await r.json(), a=d.address;
+    const city    = a.city||a.town||a.village||a.municipality||'';
+    const road    = a.road||a.pedestrian||a.footway||'';
+    const num     = a.house_number||'';
+    const post    = a.postcode||'';
+    const street  = num&&road ? `${num} ${road}` : road;
+    const address = [street, post&&city?`${post} ${city}`:city].filter(Boolean).join(', ')
+                    || d.display_name?.split(',').slice(0,3).join(',') || 'Adresse inconnue';
+    return {city, address};
+  } catch { return {city:'',address:'Adresse indisponible'}; }
 }
-
-async function saveToGallery(blob, ts) {
-  await openDB();
-  const ab = await blob.arrayBuffer();
-  const record = {
-    data: ab,
-    type: blob.type,
-    ts:   ts.getTime(),
-    city: state.address || state.city || '',
-    lat:  state.lat,
-    lon:  state.lon,
-  };
-  return new Promise((res,rej) => {
-    const tx  = db.transaction(STORE,'readwrite');
-    const req = tx.objectStore(STORE).add(record);
-    req.onsuccess = () => { refreshGalleryCount(); res(); };
-    req.onerror   = e  => rej(e.target.error);
-  });
-}
-
-async function loadGallery() {
-  await openDB();
-  return new Promise((res,rej) => {
-    const tx  = db.transaction(STORE,'readonly');
-    const req = tx.objectStore(STORE).getAll();
-    req.onsuccess = e => res(e.target.result.reverse()); // plus récent en premier
-    req.onerror   = e => rej(e.target.error);
-  });
-}
-
-async function deleteFromGallery(id) {
-  await openDB();
-  return new Promise((res,rej) => {
-    const tx  = db.transaction(STORE,'readwrite');
-    const req = tx.objectStore(STORE).delete(id);
-    req.onsuccess = () => { refreshGalleryCount(); res(); };
-    req.onerror   = e => rej(e.target.error);
-  });
-}
-
-async function refreshGalleryCount() {
-  await openDB();
-  const tx  = db.transaction(STORE,'readonly');
-  const req = tx.objectStore(STORE).count();
-  req.onsuccess = e => {
-    const n = e.target.result;
-    galleryCount.textContent = n;
-    if (n > 0) galleryCount.classList.add('visible');
-    else galleryCount.classList.remove('visible');
-  };
-}
-
-async function renderGallery() {
-  const items = await loadGallery();
-  galleryGrid.innerHTML = '';
-  if (items.length === 0) {
-    galleryEmpty.style.display = 'flex';
-    galleryGrid.style.display  = 'none';
-    return;
-  }
-  galleryEmpty.style.display = 'none';
-  galleryGrid.style.display  = 'grid';
-
-  items.forEach(item => {
-    const blob  = new Blob([item.data], { type: item.type });
-    const url   = URL.createObjectURL(blob);
-    const d     = new Date(item.ts);
-    const label = d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})
-                + ' ' + d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-
-    const div = document.createElement('div');
-    div.className = 'gallery-item';
-    div.innerHTML = `
-      <img src="${url}" alt="Photo ${label}" loading="lazy">
-      <div class="gallery-item-meta">${label}${item.city ? '<br>'+item.city : ''}</div>
-      <button class="gallery-item-del" data-id="${item.id}" aria-label="Supprimer">✕</button>
-    `;
-    div.querySelector('img').addEventListener('click', () => openLightbox(url, blob, item));
-    div.querySelector('.gallery-item-del').addEventListener('click', async e => {
-      e.stopPropagation();
-      await deleteFromGallery(item.id);
-      URL.revokeObjectURL(url);
-      await renderGallery();
-      showToast('🗑 Photo supprimée');
-    });
-    galleryGrid.appendChild(div);
-  });
-}
-
-/* ── Lightbox ── */
-const lightbox      = document.getElementById('lightbox');
-const lightboxImg   = document.getElementById('lightbox-img');
-const lightboxShare = document.getElementById('lightbox-share');
-let   lightboxBlob  = null;
-let   lightboxTs    = null;
-
-function openLightbox(url, blob, item) {
-  lightboxImg.src = url;
-  lightboxBlob    = blob;
-  lightboxTs      = new Date(item.ts);
-  lightbox.classList.add('open');
-}
-document.getElementById('lightbox-close').addEventListener('click', () => {
-  lightbox.classList.remove('open');
-  lightboxImg.src = '';
-});
-lightboxShare.addEventListener('click', async () => {
-  if (lightboxBlob && lightboxTs) await shareBlob(lightboxBlob, lightboxTs);
-});
 
 /* ═══════════════════════════════════════════
-   TABS + NAVIGATION
+   MAP TILE
 ═══════════════════════════════════════════ */
+function getMapTile(lat,lon,zoom=16){
+  return new Promise(resolve=>{
+    const n=2**zoom, x=Math.floor(n*(lon+180)/360);
+    const lr=lat*Math.PI/180;
+    const y=Math.floor(n*(1-Math.log(Math.tan(lr)+1/Math.cos(lr))/Math.PI)/2);
+    const img=new Image(); img.crossOrigin='anonymous';
+    const t=setTimeout(()=>resolve(null),5000);
+    img.onload=()=>{clearTimeout(t);resolve(img);};
+    img.onerror=()=>{clearTimeout(t);resolve(null);};
+    img.src=`https://a.tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
+  });
+}
+
+/* ═══════════════════════════════════════════
+   TABS & GALERIE
+═══════════════════════════════════════════ */
+const viewGallery = document.getElementById('view-gallery');
+
 document.querySelectorAll('.tab').forEach(btn => {
   btn.addEventListener('click', async () => {
+    const v = btn.dataset.view;
     document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
-    document.querySelectorAll('[id^=view-]').forEach(v=>v.classList.remove('active'));
     btn.classList.add('active');
-    const view = btn.dataset.view;
-    document.getElementById('view-'+view).classList.add('active');
-    if (view==='gallery') await renderGallery();
+    if (v==='gallery') {
+      viewGallery.classList.add('active');
+      S.mode='gallery';
+      await renderGallery();
+    } else {
+      viewGallery.classList.remove('active');
+      S.mode = S.currentBlob ? 'preview' : 'camera';
+      if (!S.currentBlob && S.stream) video.style.display='block';
+    }
   });
 });
-document.getElementById('gallery-btn').addEventListener('click', async () => {
-  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
-  document.querySelectorAll('[id^=view-]').forEach(v=>v.classList.remove('active'));
-  document.querySelector('[data-view=gallery]').classList.add('active');
-  document.getElementById('view-gallery').classList.add('active');
-  await renderGallery();
-});
+
+/* ═══════════════════════════════════════════
+   INDEXEDDB
+═══════════════════════════════════════════ */
+const DB='GeoSnapDB', VER=1, ST='photos';
+let db;
+function openDB(){
+  return new Promise((res,rej)=>{
+    const q=indexedDB.open(DB,VER);
+    q.onupgradeneeded=e=>e.target.result.createObjectStore(ST,{keyPath:'id',autoIncrement:true});
+    q.onsuccess=e=>{db=e.target.result;res(db);};
+    q.onerror=e=>rej(e.target.error);
+  });
+}
+async function saveToGallery(blob,ts){
+  await openDB();
+  const ab=await blob.arrayBuffer();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(ST,'readwrite');
+    tx.objectStore(ST).add({data:ab,type:blob.type,ts:ts.getTime(),city:S.address||S.city,lat:S.lat,lon:S.lon});
+    tx.oncomplete=res; tx.onerror=e=>rej(e.target.error);
+  });
+}
+async function loadGallery(){
+  await openDB();
+  return new Promise((res,rej)=>{
+    const q=db.transaction(ST,'readonly').objectStore(ST).getAll();
+    q.onsuccess=e=>res(e.target.result.reverse());
+    q.onerror=e=>rej(e.target.error);
+  });
+}
+async function deletePhoto(id){
+  await openDB();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(ST,'readwrite');
+    tx.objectStore(ST).delete(id);
+    tx.oncomplete=res; tx.onerror=e=>rej(e.target.error);
+  });
+}
+
+async function renderGallery(){
+  const items=await loadGallery();
+  const grid=document.getElementById('gallery-grid');
+  const empty=document.getElementById('gallery-empty');
+  grid.innerHTML='';
+  if(!items.length){ empty.style.display='flex'; grid.style.display='none'; return; }
+  empty.style.display='none'; grid.style.display='grid';
+  items.forEach(item=>{
+    const blob=new Blob([item.data],{type:item.type});
+    const url=URL.createObjectURL(blob);
+    const d=new Date(item.ts);
+    const label=d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})
+               +' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const div=document.createElement('div');
+    div.className='gallery-item';
+    div.innerHTML=`<img src="${url}" loading="lazy"><div class="gallery-item-meta">${label}${item.city?'<br>'+item.city:''}</div><button class="gallery-del">✕</button>`;
+    div.querySelector('img').onclick=()=>openLightbox(url,blob,item);
+    div.querySelector('.gallery-del').onclick=async e=>{
+      e.stopPropagation();
+      await deletePhoto(item.id);
+      URL.revokeObjectURL(url);
+      await renderGallery();
+      showToast('🗑 Supprimée');
+    };
+    grid.appendChild(div);
+  });
+}
+
+/* Lightbox */
+const lightbox=document.getElementById('lightbox');
+let lbBlob=null,lbTs=null;
+function openLightbox(url,blob,item){
+  document.getElementById('lb-img').src=url;
+  lbBlob=blob; lbTs=new Date(item.ts);
+  lightbox.classList.add('open');
+}
+document.getElementById('lb-close').onclick=()=>{lightbox.classList.remove('open');document.getElementById('lb-img').src='';};
+document.getElementById('lb-share').onclick=()=>{ if(lbBlob&&lbTs) shareBlob(lbBlob,lbTs); };
 
 /* ═══════════════════════════════════════════
    UTILS
 ═══════════════════════════════════════════ */
-function loadImage(src) {
-  return new Promise((res,rej) => {
-    const img=new Image(); img.onload=()=>res(img); img.onerror=()=>rej(new Error('Chargement image'));
-    img.src=src;
+function loadImage(src){
+  return new Promise((res,rej)=>{
+    const i=new Image(); i.onload=()=>res(i); i.onerror=()=>rej(new Error('Chargement image')); i.src=src;
   });
 }
-function canvasToBlob(c) {
-  return new Promise(res => c.toBlob(res,'image/jpeg',.95));
-}
+function canvasToBlob(c){ return new Promise(res=>c.toBlob(res,'image/jpeg',.95)); }
 function showProcessing(msg){ procLabel.textContent=msg; processing.classList.add('active'); }
 function hideProcessing(){ processing.classList.remove('active'); }
-
-let toastTimer;
-function showToast(msg, type='') {
+let toastT;
+function showToast(msg,type=''){
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='show '+(type||'');
-  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.className='',3000);
+  clearTimeout(toastT); toastT=setTimeout(()=>t.className='',3200);
 }
-
-// Init galerie count
-refreshGalleryCount();
 </script>
 </body>
 </html>
