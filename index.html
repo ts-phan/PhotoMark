@@ -119,7 +119,7 @@
       display:flex;
       flex-direction:column;
       align-items:center;
-      padding-bottom: max(28px, env(safe-area-inset-bottom) + 18px);
+      padding-bottom: max(38px, env(safe-area-inset-bottom) + 28px);
       background:linear-gradient(to top,rgba(0,0,0,.45) 0%,transparent 100%);
       pointer-events:none;
     }
@@ -225,8 +225,8 @@
     .empty-icon { font-size:44px; }
     #gallery-grid {
       display:grid;
-      grid-template-columns:repeat(2,1fr);
-      gap:6px;
+      grid-template-columns:repeat(3,1fr);
+      gap:5px;
     }
     .gitem {
       position:relative; aspect-ratio:9/16;
@@ -273,12 +273,17 @@
     }
 
     /* Contrôles swiper */
-    #swiper-close {
-      position:fixed; top:max(16px,env(safe-area-inset-top)+8px); right:18px;
+    #swiper-back {
+      position:fixed; top:max(16px,env(safe-area-inset-top)+8px); left:18px;
       background:rgba(20,20,28,.88); border:none; color:white;
-      width:36px; height:36px; border-radius:50%; font-size:16px;
-      cursor:pointer; display:flex; align-items:center; justify-content:center;
+      height:36px; padding:0 14px 0 10px;
+      border-radius:18px; font-size:14px; font-weight:600;
+      cursor:pointer; display:flex; align-items:center; gap:6px;
       z-index:102; backdrop-filter:blur(8px);
+      -webkit-tap-highlight-color:transparent;
+    }
+    #swiper-close {
+      display:none; /* remplacé par swiper-back */
     }
     #swiper-share {
       position:fixed;
@@ -384,7 +389,8 @@
 <!-- ══ SWIPER plein écran ══ -->
 <div id="swiper">
   <div id="swiper-track"></div>
-  <button id="swiper-close">✕</button>
+  <button id="swiper-back">‹ Galerie</button>
+  <button id="swiper-close" style="display:none">✕</button>
   <div id="swiper-index">1 / 1</div>
   <button id="swiper-share">📤 Partager</button>
   <button id="swiper-del">🗑</button>
@@ -416,6 +422,16 @@ const processing  = document.getElementById('processing');
 const flash       = document.getElementById('flash');
 
 /* ── GPS ── */
+let gpsRefreshTimer = null;
+
+async function refreshGeoAndTile() {
+  if (!S.gpsReady) return;
+  const r = await geocode(S.lat, S.lon);
+  S.city = r.city; S.address = r.address;
+  const t = await getMapTile(S.lat, S.lon);
+  if (t) S.mapTile = t;
+}
+
 function initGPS() {
   if (!navigator.geolocation) { gpsDot.className='error'; return; }
   navigator.geolocation.watchPosition(
@@ -423,12 +439,14 @@ function initGPS() {
       S.lat=pos.coords.latitude; S.lon=pos.coords.longitude; S.gpsReady=true;
       gpsDot.className='active';
       geocode(S.lat,S.lon).then(r=>{S.city=r.city;S.address=r.address;});
-      // Fetch and cache map tile for live overlay
-      getMapTile(S.lat,S.lon).then(t=>{ S.mapTile=t; });
+      getMapTile(S.lat,S.lon).then(t=>{ if(t) S.mapTile=t; });
     },
     ()=>gpsDot.className='error',
     {enableHighAccuracy:true,maximumAge:15000,timeout:10000}
   );
+  // Refresh adresse + tuile toutes les 30s
+  if (gpsRefreshTimer) clearInterval(gpsRefreshTimer);
+  gpsRefreshTimer = setInterval(refreshGeoAndTile, 30000);
 }
 initGPS();
 
@@ -533,7 +551,8 @@ async function captureAndSave(src) {
     else     {ssh=src.width/cr; sy=(src.height-ssh)/2;}
     cctx.drawImage(src,sx,sy,ssw,ssh,0,0,sw,sh);
 
-    // 2. Carte GPS — réutilise le cache ou fetch
+    // 2. Carte GPS — refresh position/adresse + tuile à la capture
+    await refreshGeoAndTile();
     const mapImg = S.mapTile || (S.gpsReady ? await getMapTile(S.lat,S.lon) : null);
     if (mapImg && !S.mapTile) S.mapTile = mapImg;
 
@@ -565,8 +584,8 @@ function drawAnnotText(ctx, W, H, now, forCapture, mapImg) {
   ctx.fillRect(0,0,W,H);
 
   const pad  = W * 0.042;
-  // Réserve bottom pour le shutter uniquement en live
-  const reserveBottom = forCapture ? pad*0.5 : (90 + Math.max(28,18)) * dpr;
+  // Réserve bottom pour le shutter uniquement en live — plus bas
+  const reserveBottom = forCapture ? pad*0.5 : (110 + Math.max(38,28)) * dpr;
   const baseY = H - reserveBottom;
 
   // Espacement vertical entre lignes
@@ -738,17 +757,25 @@ async function deletePhoto(id){
 }
 
 /* ── TABS ── */
-// Sync les deux groupes de tabs (header caméra + header galerie)
 function setTab(view){
   document.querySelectorAll('.tab').forEach(b=>{
     b.classList.toggle('active', b.dataset.view===view);
   });
   const gallery = document.getElementById('view-gallery');
+  const bottom  = document.getElementById('bottom');
+  const hdr     = document.getElementById('hdr');
+  const gpsDotEl= document.getElementById('gps-dot');
   if(view==='gallery'){
     gallery.classList.add('active');
+    bottom.style.display  = 'none';
+    hdr.style.display     = 'none';
+    gpsDotEl.style.display= 'none';
     renderGallery();
   } else {
     gallery.classList.remove('active');
+    bottom.style.display  = '';
+    hdr.style.display     = '';
+    gpsDotEl.style.display= '';
   }
 }
 document.querySelectorAll('.tab').forEach(btn=>{
@@ -824,6 +851,7 @@ function closeSwiper() {
   swItems = [];
 }
 
+document.getElementById('swiper-back').onclick = closeSwiper;
 document.getElementById('swiper-close').onclick = closeSwiper;
 
 swiperShare.onclick = () => {
