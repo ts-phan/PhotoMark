@@ -28,10 +28,11 @@
       color:var(--white);
     }
 
-    /* ══ STAGE — vrai plein écran ══ */
+    /* ══ STAGE — commence sous la notch/Dynamic Island ══ */
     #stage {
       position:fixed;
-      top:0; left:0; right:0; bottom:0;
+      top: env(safe-area-inset-top);
+      left:0; right:0; bottom:0;
     }
 
     /* Vidéo couvre tout */
@@ -62,12 +63,12 @@
     #hdr {
       position:absolute;
       top:0; left:0; right:0;
-      z-index:10;
+      z-index:30;
       display:flex;
       align-items:center;
       justify-content:space-between;
-      padding:14px 18px 14px;
-      padding-top: max(14px, env(safe-area-inset-top) + 8px);
+      padding: 12px 18px 12px;
+
       background:linear-gradient(to bottom,rgba(0,0,0,.55) 0%,transparent 100%);
     }
     .logo {
@@ -101,7 +102,7 @@
     /* GPS dot minuscule */
     #gps-dot {
       position:absolute;
-      top: max(18px, env(safe-area-inset-top) + 10px);
+      top: 14px;
       left:50%; transform:translateX(-50%);
       width:6px; height:6px;
       border-radius:50%; background:#444;
@@ -115,11 +116,11 @@
     #bottom {
       position:absolute;
       bottom:0; left:0; right:0;
-      z-index:10;
+      z-index:30;
       display:flex;
       flex-direction:column;
       align-items:center;
-      padding-bottom: max(18px, env(safe-area-inset-bottom) + 8px);
+      padding-bottom: max(38px, env(safe-area-inset-bottom) + 28px);
       background:linear-gradient(to top,rgba(0,0,0,.45) 0%,transparent 100%);
       pointer-events:none;
     }
@@ -198,8 +199,8 @@
       position:absolute;
       top:0; left:0; right:0;
       z-index:5;
-      padding:14px 18px 14px;
-      padding-top: max(14px, env(safe-area-inset-top) + 8px);
+      padding: 12px 18px 12px;
+
       display:flex; align-items:center; justify-content:space-between;
       background:rgba(10,10,15,.92);
       backdrop-filter:blur(10px);
@@ -212,7 +213,7 @@
       flex:1;
       overflow-y:auto;
       -webkit-overflow-scrolling:touch;
-      padding-top: max(38px, env(safe-area-inset-top) + 32px);
+      padding-top: 58px;
       padding-bottom: max(16px, env(safe-area-inset-bottom) + 8px);
       padding-left:10px; padding-right:10px;
     }
@@ -266,9 +267,8 @@
       flex:0 0 100%; width:100%; height:100%;
       display:flex; align-items:center; justify-content:center;
       background:#000;
-      /* Padding pour ne pas être sous la notch ni les contrôles bas */
-      padding-top: max(64px, env(safe-area-inset-top) + 52px);
-      padding-bottom: max(80px, env(safe-area-inset-bottom) + 64px);
+      padding-top: max(56px, env(safe-area-inset-top) + 50px);
+      padding-bottom: max(16px, env(safe-area-inset-bottom) + 8px);
     }
     .swiper-slide img {
       width:100%; height:100%; object-fit:contain; display:block;
@@ -333,15 +333,6 @@
       height:38px; display:flex; align-items:center;
       z-index:110; backdrop-filter:blur(8px); pointer-events:none;
     }
-
-    /* Photo agrandie vers le bas — réduit seulement le padding haut */
-    .swiper-slide {
-      flex:0 0 100%; width:100%; height:100%;
-      display:flex; align-items:center; justify-content:center;
-      background:#000;
-      padding-top: max(56px, env(safe-area-inset-top) + 46px);
-      padding-bottom: max(20px, env(safe-area-inset-bottom) + 10px);
-    }
     .swiper-slide img {
       width:100%; height:100%; object-fit:contain; display:block;
       border-radius:6px;
@@ -351,7 +342,7 @@
     /* Toast */
     #toast {
       position:fixed;
-      bottom:max(12px,env(safe-area-inset-bottom)+10px);
+      bottom:max(32px,env(safe-area-inset-bottom)+20px);
       left:50%; transform:translateX(-50%) translateY(14px);
       background:rgba(22,22,32,.96); color:var(--white);
       padding:10px 18px; border-radius:30px; font-size:13px;
