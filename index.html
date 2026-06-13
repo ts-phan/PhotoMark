@@ -300,10 +300,11 @@
     #swiper-share {
       position:fixed;
       bottom: max(28px, env(safe-area-inset-bottom) + 16px);
-      left:50%; transform:translateX(-50%);
+      left: calc(50% - 52px);
+      width:46px; height:46px; border-radius:50%;
       background:rgba(232,32,42,.92); color:white; border:none;
-      padding:12px 32px; border-radius:30px;
-      font-size:14px; font-weight:600; cursor:pointer;
+      font-size:20px;
+      cursor:pointer; display:flex; align-items:center; justify-content:center;
       backdrop-filter:blur(8px); z-index:110;
       -webkit-tap-highlight-color:transparent;
       box-shadow: 0 2px 12px rgba(232,32,42,.4);
@@ -311,9 +312,9 @@
     #swiper-del {
       position:fixed;
       bottom: max(28px, env(safe-area-inset-bottom) + 16px);
-      right:20px;
+      left: calc(50% + 6px);
+      width:46px; height:46px; border-radius:50%; font-size:20px;
       background:rgba(20,20,28,.88); border:none; color:rgba(255,255,255,.75);
-      width:46px; height:46px; border-radius:50%; font-size:19px;
       cursor:pointer; display:flex; align-items:center; justify-content:center;
       z-index:110; backdrop-filter:blur(8px);
       -webkit-tap-highlight-color:transparent;
@@ -406,8 +407,8 @@
   <button id="swiper-back">‹ Galerie</button>
   <button id="swiper-close" style="display:none">✕</button>
   <div id="swiper-index">1 / 1</div>
-  <button id="swiper-share">📤 Partager</button>
-  <button id="swiper-del">🗑</button>
+  <button id="swiper-share" title="Partager">📤</button>
+  <button id="swiper-del" title="Supprimer">🗑</button>
 </div>
 
 <div id="toast"></div>
@@ -663,7 +664,6 @@ function drawAnnotText(ctx, W, H, now, forCapture, mapImg) {
   // ── Miniature carte (live ET capture) ──
   if (mapImg) {
     const mS = W * 0.20;
-    // Aligner le bas de la carte avec y1 (ligne coordonnées)
     const mX = W - pad - mS;
     const mY = y1 - mS;
     sh(false);
@@ -673,9 +673,7 @@ function drawAnnotText(ctx, W, H, now, forCapture, mapImg) {
     sh(false);
     ctx.save(); rrect(ctx, mX, mY, mS, mS, mS*.07); ctx.clip();
     ctx.drawImage(mapImg, mX, mY, mS, mS); ctx.restore();
-    // Point position
-    ctx.fillStyle='#E8202A'; ctx.strokeStyle='white'; ctx.lineWidth=2*dpr;
-    ctx.beginPath(); ctx.arc(mX+mS/2, mY+mS/2, mS*.08, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    // Le point GPS est déjà gravé dans mapImg par getMapTile()
   }
 }
 
@@ -698,17 +696,92 @@ function loadImg(src){
 }
 function canvasToBlob(c){ return new Promise(res=>c.toBlob(res,'image/jpeg',.95)); }
 
-/* ── MAP TILE ── */
-function getMapTile(lat,lon,z=16){
-  return new Promise(resolve=>{
-    const n=2**z,x=Math.floor(n*(lon+180)/360);
-    const lr=lat*Math.PI/180;
-    const y=Math.floor(n*(1-Math.log(Math.tan(lr)+1/Math.cos(lr))/Math.PI)/2);
-    const img=new Image(); img.crossOrigin='anonymous';
-    const t=setTimeout(()=>resolve(null),5000);
-    img.onload=()=>{clearTimeout(t);resolve(img);};
-    img.onerror=()=>{clearTimeout(t);resolve(null);};
-    img.src=`https://a.tile.openstreetmap.org/${z}/${x}/${y}.png`;
+/* ── MAP TILE — position exacte du point GPS dans la tuile ── */
+function getMapTile(lat, lon, z = 17) {
+  return new Promise(resolve => {
+    const n   = 2 ** z;
+    // Coordonnées tuile exactes (avec fraction)
+    const xF  = n * (lon + 180) / 360;
+    const lr  = lat * Math.PI / 180;
+    const yF  = n * (1 - Math.log(Math.tan(lr) + 1 / Math.cos(lr)) / Math.PI) / 2;
+    const tx  = Math.floor(xF);
+    const ty  = Math.floor(yF);
+    // Fraction du point dans la tuile [0..1]
+    const fx  = xF - tx;
+    const fy  = yF - ty;
+
+    const TILE = 256; // taille d'une tuile OSM en px
+    // On charge une grille 3×3 centrée sur la tuile du point
+    const offsets = [-1, 0, 1];
+    const imgs = [];
+    let loaded = 0;
+    const total = 9;
+
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        const ix = ((tx + dx) % n + n) % n;
+        const iy = Math.max(0, Math.min(n - 1, ty + dy));
+        img.src = `https://a.tile.openstreetmap.org/${z}/${ix}/${iy}.png`;
+        imgs.push({ img, dx, dy });
+        const onDone = () => { if (++loaded === total) compose(); };
+        img.onload  = onDone;
+        img.onerror = onDone;
+      }
+    }
+
+    const timer = setTimeout(() => resolve(null), 6000);
+
+    function compose() {
+      clearTimeout(timer);
+      const size = TILE * 3;
+      const off  = document.createElement('canvas');
+      off.width  = size; off.height = size;
+      const c    = off.getContext('2d');
+
+      // Dessiner les 9 tuiles
+      imgs.forEach(({ img, dx, dy }) => {
+        c.drawImage(img, (dx + 1) * TILE, (dy + 1) * TILE, TILE, TILE);
+      });
+
+      // Position exacte du point dans la grille 3×3 (en px)
+      const px = (1 + fx) * TILE;
+      const py = (1 + fy) * TILE;
+
+      // Recadrer : extraire une fenêtre centrée sur le point (taille = TILE*1.5)
+      const crop = TILE * 1.5;
+      const cropX = Math.round(px - crop / 2);
+      const cropY = Math.round(py - crop / 2);
+
+      const out  = document.createElement('canvas');
+      out.width  = crop; out.height = crop;
+      const oc   = out.getContext('2d');
+      oc.drawImage(off, cropX, cropY, crop, crop, 0, 0, crop, crop);
+
+      // Point GPS — exactement au centre du canvas de sortie
+      const cx = crop / 2, cy = crop / 2, r = crop * 0.06;
+      // Ombre
+      oc.shadowColor = 'rgba(0,0,0,.5)'; oc.shadowBlur = 4;
+      oc.fillStyle   = '#E8202A';
+      oc.strokeStyle = 'white';
+      oc.lineWidth   = Math.max(2, crop * 0.012);
+      oc.beginPath(); oc.arc(cx, cy, r, 0, Math.PI * 2); oc.fill(); oc.stroke();
+      // Petite croix blanche au centre
+      oc.shadowColor = 'transparent';
+      oc.strokeStyle = 'white'; oc.lineWidth = Math.max(1.5, crop * 0.007);
+      const arm = r * 0.45;
+      oc.beginPath();
+      oc.moveTo(cx - arm, cy); oc.lineTo(cx + arm, cy);
+      oc.moveTo(cx, cy - arm); oc.lineTo(cx, cy + arm);
+      oc.stroke();
+
+      // Convertir en image utilisable par drawImage
+      const result = new Image();
+      result.onload = () => resolve(result);
+      result.onerror = () => resolve(null);
+      result.src = out.toDataURL('image/png');
+    }
   });
 }
 
