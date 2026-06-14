@@ -28,14 +28,31 @@
       color:var(--white);
     }
 
+    /* ══ VARIABLES DE LAYOUT ══
+       --bar-h : hauteur de la barre annotations+shutter en bas
+       On réserve cet espace = la vidéo s'arrête avant le shutter */
+    :root {
+      --bar-h: 190px; /* annotations ~110px + shutter 70px + padding */
+    }
+
     /* ══ STAGE — commence sous la notch/Dynamic Island ══ */
     #stage {
       position:fixed;
       top: env(safe-area-inset-top);
       left:0; right:0; bottom:0;
+      display:flex;
+      flex-direction:column;
     }
 
-    /* Vidéo couvre tout */
+    /* ── ZONE CAMÉRA : occupe tout sauf la barre du bas ── */
+    #cam-zone {
+      flex:1;
+      position:relative;
+      overflow:hidden;
+      min-height:0;
+    }
+
+    /* Vidéo remplit uniquement la zone caméra */
     #live-video {
       position:absolute;
       inset:0; width:100%; height:100%;
@@ -43,7 +60,7 @@
       display:block;
     }
 
-    /* Canvas live-annotation : par-dessus la vidéo, transparent, pointer-events none */
+    /* Canvas live-annotation : couvre uniquement la zone caméra */
     #live-overlay {
       position:absolute;
       inset:0; width:100%; height:100%;
@@ -51,7 +68,7 @@
       display:block;
     }
 
-    /* Canvas final (capture) — même taille */
+    /* Canvas final (capture) — même taille que cam-zone */
     #annotated {
       position:absolute;
       inset:0; width:100%; height:100%;
@@ -59,7 +76,7 @@
       display:none;
     }
 
-    /* ══ HEADER flottant ══ */
+    /* ══ HEADER flottant (par-dessus cam-zone) ══ */
     #hdr {
       position:absolute;
       top:0; left:0; right:0;
@@ -68,8 +85,7 @@
       align-items:center;
       justify-content:space-between;
       padding: 12px 18px 12px;
-
-      background:linear-gradient(to bottom,rgba(0,0,0,.55) 0%,transparent 100%);
+      background:linear-gradient(to bottom,rgba(0,0,0,.60) 0%,transparent 100%);
     }
     .logo {
       display:flex; align-items:center; gap:8px;
@@ -112,24 +128,72 @@
     #gps-dot.active { background:#4ade80; box-shadow:0 0 5px #4ade80; }
     #gps-dot.error  { background:var(--red); }
 
-    /* ══ BOTTOM flottant ══ */
+    /* ══ BARRE DU BAS : annotations + shutter, zone propre séparée ══ */
     #bottom {
-      position:absolute;
-      bottom:0; left:0; right:0;
+      /* Zone fixe en bas, hors de la vidéo */
+      flex:0 0 auto;
+      position:relative;
       z-index:30;
       display:flex;
       flex-direction:column;
       align-items:center;
-      /* Zone agrandie : annotations + shutter bien séparés */
-      padding-bottom: max(48px, env(safe-area-inset-bottom) + 38px);
-      /* Dégradé plus haut pour couvrir la zone d'annotations agrandie */
-      padding-top: 220px;
-      background:linear-gradient(to top,rgba(0,0,0,.55) 0%,rgba(0,0,0,.18) 60%,transparent 100%);
-      pointer-events:none;
+      background:#000;
+      padding-bottom: max(28px, env(safe-area-inset-bottom) + 14px);
+      padding-top: 0;
     }
-    #bottom > * { pointer-events:auto; }
 
-    /* Bouton déclencheur */
+    /* Annotations HTML dans la barre du bas */
+    #live-annot {
+      width:100%;
+      padding: 10px 16px 0 16px;
+      font-family: "Barlow Condensed", Arial Narrow, sans-serif;
+      color: rgba(255,255,255,.88);
+      line-height: 1.3;
+      pointer-events: none;
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+    }
+    .annot-time-row {
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .annot-time {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: white;
+    }
+    .annot-redline {
+      width: 2.5px;
+      height: 42px;
+      background: var(--red);
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .annot-datecol {
+      display:flex; flex-direction:column; gap:1px;
+    }
+    .annot-date { font-size:13px; font-weight:600; }
+    .annot-day  { font-size:12px; font-weight:400; color:rgba(255,255,255,.7); }
+    .annot-addr { font-size:11px; color:rgba(255,255,255,.75); }
+    .annot-coords { font-size:10px; color:rgba(255,255,255,.55); letter-spacing:.04em; }
+
+    /* Miniature carte dans la barre */
+    #annot-map {
+      position:absolute;
+      right:16px; bottom: max(100px, env(safe-area-inset-bottom) + 88px);
+      width:72px; height:72px;
+      border-radius:8px; overflow:hidden;
+      border:2px solid white;
+      box-shadow:0 2px 8px rgba(0,0,0,.5);
+      display:none;
+    }
+    #annot-map img { width:100%; height:100%; object-fit:cover; display:block; }
+    #annot-map.visible { display:block; }
+
+    /* Bouton déclencheur — dans la barre, après les annotations */
     #shutter-btn {
       width:70px; height:70px; border-radius:50%;
       background:transparent;
@@ -139,7 +203,8 @@
       display:flex; align-items:center; justify-content:center;
       transition:transform .1s;
       position:relative;
-      margin-top:18px;
+      margin-top:10px;
+      flex-shrink:0;
     }
     #shutter-btn::after {
       content:'';
@@ -161,7 +226,7 @@
 
     /* Fallback si pas getUserMedia */
     label#cam-fallback {
-      display:none; margin-top:14px;
+      display:none; margin-top:10px;
       padding:13px 28px; background:var(--red);
       color:white; font-size:15px; font-weight:600;
       border-radius:30px; cursor:pointer;
@@ -367,11 +432,10 @@
       z-index:110; backdrop-filter:blur(8px); pointer-events:none;
     }
 
-    /* Toast — visible sur mobile au-dessus du shutter */
+    /* Toast — centré, au-dessus de la barre du bas */
     #toast {
       position:fixed;
-      /* Positionné au-dessus du bouton shutter en mobile */
-      bottom:max(160px, env(safe-area-inset-bottom) + 150px);
+      bottom: max(210px, env(safe-area-inset-bottom) + 200px);
       left:50%; transform:translateX(-50%) translateY(14px);
       background:rgba(22,22,32,.96); color:var(--white);
       padding:10px 18px; border-radius:30px; font-size:13px;
@@ -388,34 +452,55 @@
 <body>
 <div id="stage">
 
-  <!-- Flux vidéo -->
-  <video id="live-video" autoplay playsinline muted></video>
+  <!-- ══ ZONE CAMÉRA : vidéo + canvas overlay ══ -->
+  <div id="cam-zone">
+    <!-- Flux vidéo -->
+    <video id="live-video" autoplay playsinline muted></video>
 
-  <!-- Overlay annotation live (transparent) -->
-  <canvas id="live-overlay"></canvas>
+    <!-- Overlay annotation live (canvas dans cam-zone uniquement) -->
+    <canvas id="live-overlay"></canvas>
 
-  <!-- Canvas photo capturée -->
-  <canvas id="annotated"></canvas>
+    <!-- Canvas photo capturée -->
+    <canvas id="annotated"></canvas>
 
-  <!-- Flash -->
-  <div id="flash"></div>
+    <!-- Flash (dans cam-zone) -->
+    <div id="flash"></div>
 
-  <!-- ══ HEADER ══ -->
-  <div id="hdr">
-    <div class="logo"><div class="logo-dot"></div>Geo<span>Snap</span></div>
-    <div class="tab-group">
-      <button class="tab active" data-view="camera">📷 Caméra</button>
-      <button class="tab"        data-view="gallery">🖼 Galerie</button>
+    <!-- ══ HEADER flottant par-dessus la vidéo ══ -->
+    <div id="hdr">
+      <div class="logo"><div class="logo-dot"></div>Geo<span>Snap</span></div>
+      <div class="tab-group">
+        <button class="tab active" data-view="camera">📷 Caméra</button>
+        <button class="tab"        data-view="gallery">🖼 Galerie</button>
+      </div>
     </div>
-  </div>
-  <div id="gps-dot"></div>
+    <div id="gps-dot"></div>
+  </div><!-- /cam-zone -->
 
-  <!-- ══ BOTTOM ══ -->
+  <!-- ══ BARRE DU BAS : annotations HTML + shutter ══ -->
   <div id="bottom">
+    <!-- Miniature carte positionnée absolument dans la barre -->
+    <div id="annot-map"><img id="annot-map-img" src="" alt=""></div>
+
+    <!-- Annotations texte -->
+    <div id="live-annot">
+      <div class="annot-time-row">
+        <span class="annot-time" id="annot-time">--:--</span>
+        <div class="annot-redline"></div>
+        <div class="annot-datecol">
+          <span class="annot-date" id="annot-date">--/--/----</span>
+          <span class="annot-day"  id="annot-day">---.</span>
+        </div>
+      </div>
+      <div class="annot-addr"   id="annot-addr">Localisation en cours…</div>
+      <div class="annot-coords" id="annot-coords"></div>
+    </div>
+
+    <!-- Bouton shutter -->
     <button id="shutter-btn" aria-label="Prendre une photo"></button>
     <label id="cam-fallback" for="cameraInput">📷 Photographier</label>
     <input type="file" accept="image/*" capture="environment" id="cameraInput">
-  </div>
+  </div><!-- /bottom -->
 
   <!-- Processing -->
   <div id="processing"><div class="spinner"></div></div>
@@ -478,6 +563,16 @@ const cameraInput = document.getElementById('cameraInput');
 const gpsDot      = document.getElementById('gps-dot');
 const processing  = document.getElementById('processing');
 const flash       = document.getElementById('flash');
+const camZone     = document.getElementById('cam-zone');
+
+// Éléments HTML d'annotation dans la barre du bas
+const annotTime   = document.getElementById('annot-time');
+const annotDate   = document.getElementById('annot-date');
+const annotDay    = document.getElementById('annot-day');
+const annotAddr   = document.getElementById('annot-addr');
+const annotCoords = document.getElementById('annot-coords');
+const annotMapDiv = document.getElementById('annot-map');
+const annotMapImg = document.getElementById('annot-map-img');
 
 /* ── GPS ── */
 let gpsRefreshTimer = null;
@@ -487,7 +582,23 @@ async function refreshGeoAndTile() {
   const r = await geocode(S.lat, S.lon);
   S.city = r.city; S.address = r.address;
   const t = await getMapTile(S.lat, S.lon);
-  if (t) S.mapTile = t;
+  if (t) { S.mapTile = t; updateAnnotMapImg(t); }
+}
+
+function updateAnnotMapImg(mapImg) {
+  if (!mapImg) return;
+  try {
+    // Convertir le canvas mapImg en URL pour le <img> HTML
+    const tmpC = document.createElement('canvas');
+    tmpC.width = mapImg.width||256; tmpC.height = mapImg.height||256;
+    tmpC.getContext('2d').drawImage(mapImg, 0, 0);
+    annotMapImg.src = tmpC.toDataURL('image/png');
+    annotMapDiv.classList.add('visible');
+  } catch(e) {
+    // Si mapImg est déjà une Image (pas un canvas)
+    annotMapImg.src = mapImg.src || '';
+    if (annotMapImg.src) annotMapDiv.classList.add('visible');
+  }
 }
 
 function initGPS() {
@@ -497,23 +608,37 @@ function initGPS() {
       S.lat=pos.coords.latitude; S.lon=pos.coords.longitude; S.gpsReady=true;
       gpsDot.className='active';
       geocode(S.lat,S.lon).then(r=>{S.city=r.city;S.address=r.address;});
-      getMapTile(S.lat,S.lon).then(t=>{ if(t) S.mapTile=t; });
+      getMapTile(S.lat,S.lon).then(t=>{ if(t){S.mapTile=t; updateAnnotMapImg(t);} });
     },
     ()=>gpsDot.className='error',
     {enableHighAccuracy:true,maximumAge:15000,timeout:10000}
   );
-  // Refresh adresse + tuile toutes les 30s
   if (gpsRefreshTimer) clearInterval(gpsRefreshTimer);
   gpsRefreshTimer = setInterval(refreshGeoAndTile, 30000);
 }
 initGPS();
 
-/* ── LIVE OVERLAY — redessiné chaque seconde ── */
+/* ── MISE À JOUR DES ANNOTATIONS HTML (chaque seconde) ── */
+function updateLiveAnnotHTML() {
+  const now = new Date();
+  annotTime.textContent = now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  annotDate.textContent = now.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
+  let dayS = now.toLocaleDateString('fr-FR',{weekday:'short'});
+  dayS = dayS[0].toUpperCase()+dayS.slice(1)+'.';
+  annotDay.textContent  = dayS;
+  annotAddr.textContent = S.address||S.city||'Localisation en cours…';
+  annotCoords.textContent = S.gpsReady
+    ? `${S.lat.toFixed(5)}°N  ${S.lon.toFixed(5)}°E`
+    : '';
+}
+
+/* ── LIVE OVERLAY (canvas sur cam-zone) — dégradé bas uniquement ── */
 function resizeLiveOverlay() {
-  liveOverlay.width  = window.innerWidth  * (window.devicePixelRatio||1);
-  liveOverlay.height = window.innerHeight * (window.devicePixelRatio||1);
-  liveOverlay.style.width  = window.innerWidth  + 'px';
-  liveOverlay.style.height = window.innerHeight + 'px';
+  const W = camZone.offsetWidth  * (window.devicePixelRatio||1);
+  const H = camZone.offsetHeight * (window.devicePixelRatio||1);
+  liveOverlay.width  = W; liveOverlay.height = H;
+  liveOverlay.style.width  = camZone.offsetWidth  + 'px';
+  liveOverlay.style.height = camZone.offsetHeight + 'px';
 }
 resizeLiveOverlay();
 window.addEventListener('resize', resizeLiveOverlay);
@@ -521,18 +646,25 @@ window.addEventListener('resize', resizeLiveOverlay);
 let overlayTimer = null;
 function startLiveOverlay() {
   if (overlayTimer) return;
-  drawLiveOverlay();
-  overlayTimer = setInterval(drawLiveOverlay, 1000);
+  updateLiveAnnotHTML();
+  overlayTimer = setInterval(() => { drawLiveGradient(); updateLiveAnnotHTML(); }, 1000);
+  drawLiveGradient();
 }
 function stopLiveOverlay() {
   if (overlayTimer) { clearInterval(overlayTimer); overlayTimer=null; }
   lvo.clearRect(0,0,liveOverlay.width,liveOverlay.height);
 }
 
-function drawLiveOverlay() {
+/* Canvas overlay ne fait que le dégradé bas (les textes sont en HTML) */
+function drawLiveGradient() {
   const W = liveOverlay.width, H = liveOverlay.height;
   lvo.clearRect(0,0,W,H);
-  drawAnnotText(lvo, W, H, new Date(), false, S.mapTile);
+  // Dégradé bas léger pour assombrir le bas de la vidéo
+  const grad = lvo.createLinearGradient(0, H*0.65, 0, H);
+  grad.addColorStop(0,'rgba(0,0,0,0)');
+  grad.addColorStop(1,'rgba(0,0,0,0.35)');
+  lvo.fillStyle = grad;
+  lvo.fillRect(0,0,W,H);
 }
 
 /* ── CAMERA ── */
@@ -595,29 +727,29 @@ async function doCapture() {
 async function captureAndSave(src) {
   processing.classList.add('active');
   try {
-    // 1. Préparer canvas de capture (plein écran)
-    const sw = window.innerWidth  * (window.devicePixelRatio||1);
-    const sh = window.innerHeight * (window.devicePixelRatio||1);
-    captureCanvas.width  = sw; captureCanvas.height = sh;
-    captureCanvas.style.width  = window.innerWidth+'px';
-    captureCanvas.style.height = window.innerHeight+'px';
+    // 1. Canvas = dimensions de cam-zone (pas plein écran complet)
+    const cw = camZone.offsetWidth  * (window.devicePixelRatio||1);
+    const ch = camZone.offsetHeight * (window.devicePixelRatio||1);
+    captureCanvas.width  = cw; captureCanvas.height = ch;
+    captureCanvas.style.width  = camZone.offsetWidth+'px';
+    captureCanvas.style.height = camZone.offsetHeight+'px';
 
     // Crop centré
-    const cr = sw/sh, sr = src.width/src.height;
+    const cr = cw/ch, sr = src.width/src.height;
     let sx=0,sy=0,ssw=src.width,ssh=src.height;
     if(sr>cr){ssw=src.height*cr;sx=(src.width-ssw)/2;}
     else     {ssh=src.width/cr; sy=(src.height-ssh)/2;}
-    cctx.drawImage(src,sx,sy,ssw,ssh,0,0,sw,sh);
+    cctx.drawImage(src,sx,sy,ssw,ssh,0,0,cw,ch);
 
-    // 2. Carte GPS — refresh position/adresse + tuile à la capture
+    // 2. Carte GPS — refresh
     await refreshGeoAndTile();
     const mapImg = S.mapTile || (S.gpsReady ? await getMapTile(S.lat,S.lon) : null);
     if (mapImg && !S.mapTile) S.mapTile = mapImg;
 
-    // 3. Annotations sur la capture
-    drawAnnotText(cctx, sw, sh, new Date(), true, mapImg);
+    // 3. Annotations gravées sur la capture (canvas)
+    drawAnnotText(cctx, cw, ch, new Date(), mapImg);
 
-    // 4. Blob → save silencieux
+    // 4. Blob → save
     const blob = await canvasToBlob(captureCanvas);
     await saveToGallery(blob, new Date());
 
@@ -627,14 +759,13 @@ async function captureAndSave(src) {
     console.error(e);
   }
   processing.classList.remove('active');
-  // On reste en mode caméra live — pas d'affichage de la capture
 }
 
-/* ── DRAW ANNOTATIONS ── */
-function drawAnnotText(ctx, W, H, now, forCapture, mapImg) {
+/* ── DRAW ANNOTATIONS (pour capture canvas uniquement) ── */
+function drawAnnotText(ctx, W, H, now, mapImg) {
   const dpr = window.devicePixelRatio||1;
 
-  // Dégradé bas plus étendu pour couvrir toutes les lignes écartées
+  // Dégradé bas
   const grad = ctx.createLinearGradient(0, H*0.55, 0, H);
   grad.addColorStop(0,'rgba(0,0,0,0)');
   grad.addColorStop(1,'rgba(0,0,0,0.82)');
@@ -642,61 +773,50 @@ function drawAnnotText(ctx, W, H, now, forCapture, mapImg) {
   ctx.fillRect(0,0,W,H);
 
   const pad  = W * 0.042;
-  // Réserve bottom : annotations plus basses, bien sous le shutter
-  // En live : réserve plus grande pour que les annotations ne chevauchent pas le shutter
-  const shutterH = (70 + 18) * dpr; // hauteur bouton + margin-top
-  const bottomPad = Math.max(48, 38) * dpr; // padding-bottom du #bottom
-  const reserveBottom = forCapture ? pad*0.5 : shutterH + bottomPad + (H * 0.01);
+  const reserveBottom = pad * 0.5;
   const baseY = H - reserveBottom;
-
-  // Espacement vertical entre lignes
-  const lineGap = H * 0.028; // espace entre chaque ligne d'annotation
+  const lineGap = H * 0.028;
 
   function sh(on){
     if(on){ctx.shadowColor='rgba(0,0,0,.95)';ctx.shadowBlur=5*dpr;ctx.shadowOffsetX=ctx.shadowOffsetY=.8*dpr;}
     else  {ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetX=ctx.shadowOffsetY=0;}
   }
 
-  // Police condensée Barlow Condensed pour toutes les lignes texte
   const fontCond = '"Barlow Condensed",Arial Narrow,sans-serif';
-
   ctx.fillStyle='rgba(255,255,255,0.88)';
   ctx.textBaseline='bottom';
 
-  // ── L1 : Coordonnées (ligne la plus basse) ──
+  // L1 : Coordonnées
   sh(true);
   ctx.font=`400 ${H*0.013}px ${fontCond}`;
   ctx.letterSpacing = '0.04em';
-  const cStr = S.gpsReady
-    ? `${S.lat.toFixed(5)}°N  ${S.lon.toFixed(5)}°E`
-    : 'Coordonnées indisponibles';
+  const cStr = S.gpsReady ? `${S.lat.toFixed(5)}°N  ${S.lon.toFixed(5)}°E` : 'Coordonnées indisponibles';
   const y1 = baseY;
   ctx.fillText(cStr, pad, y1);
   ctx.letterSpacing = '0';
 
-  // ── L2 : Adresse ──
+  // L2 : Adresse
   const y2 = y1 - lineGap;
   const mapReserveW = mapImg ? W*0.25 : 0;
   const maxAddrW = W - pad*2 - mapReserveW;
   ctx.font=`400 ${H*0.016}px ${fontCond}`;
   ctx.fillText(trunc(ctx, S.address||S.city||'Adresse indisponible', maxAddrW), pad, y2);
 
-  // ── L3 : Heure (grande, sans secondes) ──
+  // L3 : Heure
   const tStr = now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
   const y3   = y2 - lineGap;
   ctx.font=`700 ${H*0.058}px ${fontCond}`;
   ctx.fillText(tStr, pad, y3);
 
-  // ── Ligne rouge verticale ──
+  // Ligne rouge verticale
   const tw    = ctx.measureText(tStr).width;
   const lineX = pad + tw + W*0.022;
   sh(false);
   ctx.strokeStyle='#E8202A'; ctx.lineWidth=W*0.004; ctx.lineCap='round';
   const lineTopY = y3 - H*0.048;
-  const lineBot  = y3;
-  ctx.beginPath(); ctx.moveTo(lineX,lineBot); ctx.lineTo(lineX,lineTopY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(lineX,y3); ctx.lineTo(lineX,lineTopY); ctx.stroke();
 
-  // ── Date & Jour (à droite de la ligne rouge) ──
+  // Date & Jour
   sh(true);
   ctx.fillStyle='rgba(255,255,255,.88)'; ctx.textBaseline='top';
   const dX = lineX + W*0.018;
@@ -707,7 +827,7 @@ function drawAnnotText(ctx, W, H, now, forCapture, mapImg) {
   ctx.fillText(dStr, dX, lineTopY);
   ctx.fillText(dayS, dX, lineTopY + H*0.024);
 
-  // ── Miniature carte (live ET capture) ──
+  // Miniature carte
   if (mapImg) {
     const mS = W * 0.20;
     const mX = W - pad - mS;
@@ -719,7 +839,6 @@ function drawAnnotText(ctx, W, H, now, forCapture, mapImg) {
     sh(false);
     ctx.save(); rrect(ctx, mX, mY, mS, mS, mS*.07); ctx.clip();
     ctx.drawImage(mapImg, mX, mY, mS, mS); ctx.restore();
-    // Le point GPS est déjà gravé dans mapImg par getMapTile()
   }
 }
 
@@ -894,21 +1013,21 @@ function setTab(view){
   document.querySelectorAll('.tab').forEach(b=>{
     b.classList.toggle('active', b.dataset.view===view);
   });
-  const gallery = document.getElementById('view-gallery');
-  const bottom  = document.getElementById('bottom');
-  const hdr     = document.getElementById('hdr');
-  const gpsDotEl= document.getElementById('gps-dot');
+  const gallery  = document.getElementById('view-gallery');
+  const bottom   = document.getElementById('bottom');
+  const camZoneEl= document.getElementById('cam-zone');
+  const gpsDotEl = document.getElementById('gps-dot');
   if(view==='gallery'){
     gallery.classList.add('active');
-    bottom.style.display  = 'none';
-    hdr.style.display     = 'none';
-    gpsDotEl.style.display= 'none';
+    bottom.style.display   = 'none';
+    camZoneEl.style.display= 'none';
+    gpsDotEl.style.display = 'none';
     renderGallery();
   } else {
     gallery.classList.remove('active');
-    bottom.style.display  = '';
-    hdr.style.display     = '';
-    gpsDotEl.style.display= '';
+    bottom.style.display   = '';
+    camZoneEl.style.display= '';
+    gpsDotEl.style.display = '';
   }
 }
 document.querySelectorAll('.tab').forEach(btn=>{
