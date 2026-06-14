@@ -120,8 +120,11 @@
       display:flex;
       flex-direction:column;
       align-items:center;
-      padding-bottom: max(38px, env(safe-area-inset-bottom) + 28px);
-      background:linear-gradient(to top,rgba(0,0,0,.45) 0%,transparent 100%);
+      /* Zone agrandie : annotations + shutter bien séparés */
+      padding-bottom: max(48px, env(safe-area-inset-bottom) + 38px);
+      /* Dégradé plus haut pour couvrir la zone d'annotations agrandie */
+      padding-top: 220px;
+      background:linear-gradient(to top,rgba(0,0,0,.55) 0%,rgba(0,0,0,.18) 60%,transparent 100%);
       pointer-events:none;
     }
     #bottom > * { pointer-events:auto; }
@@ -136,7 +139,7 @@
       display:flex; align-items:center; justify-content:center;
       transition:transform .1s;
       position:relative;
-      margin-top:14px;
+      margin-top:18px;
     }
     #shutter-btn::after {
       content:'';
@@ -267,13 +270,43 @@
       flex:0 0 100%; width:100%; height:100%;
       display:flex; align-items:center; justify-content:center;
       background:#000;
-      padding-top: max(56px, env(safe-area-inset-top) + 50px);
-      padding-bottom: max(16px, env(safe-area-inset-bottom) + 8px);
+      /* Réduit le padding-top pour agrandir la photo vers le bas */
+      padding-top: max(50px, env(safe-area-inset-top) + 44px);
+      padding-bottom: max(8px, env(safe-area-inset-bottom) + 4px);
     }
     .swiper-slide img {
       width:100%; height:100%; object-fit:contain; display:block;
       border-radius:8px;
       user-select:none; -webkit-user-drag:none;
+    }
+
+    /* ══ FLÈCHES NAVIGATION DESKTOP ══ */
+    .swiper-arrow {
+      display:none; /* cachées sur mobile */
+      position:fixed;
+      top:50%; transform:translateY(-50%);
+      width:52px; height:52px; border-radius:50%;
+      background:rgba(20,20,28,.82);
+      border:1px solid rgba(255,255,255,.18);
+      color:white; font-size:24px;
+      cursor:pointer;
+      align-items:center; justify-content:center;
+      z-index:115;
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
+      transition:background .18s, transform .18s;
+      box-shadow:0 2px 16px rgba(0,0,0,.5);
+      -webkit-tap-highlight-color:transparent;
+    }
+    .swiper-arrow:hover { background:rgba(232,32,42,.85); transform:translateY(-50%) scale(1.08); }
+    .swiper-arrow:active { transform:translateY(-50%) scale(.95); }
+    #swiper-prev { left:18px; }
+    #swiper-next { right:18px; }
+    .swiper-arrow.hidden { opacity:.25; pointer-events:none; }
+
+    /* Afficher les flèches uniquement sur desktop */
+    @media (min-width:768px) and (hover:hover) {
+      .swiper-arrow { display:flex; }
     }
 
     /* Contrôles swiper */
@@ -333,16 +366,12 @@
       height:38px; display:flex; align-items:center;
       z-index:110; backdrop-filter:blur(8px); pointer-events:none;
     }
-    .swiper-slide img {
-      width:100%; height:100%; object-fit:contain; display:block;
-      border-radius:6px;
-      user-select:none; -webkit-user-drag:none;
-    }
 
-    /* Toast */
+    /* Toast — visible sur mobile au-dessus du shutter */
     #toast {
       position:fixed;
-      bottom:max(32px,env(safe-area-inset-bottom)+20px);
+      /* Positionné au-dessus du bouton shutter en mobile */
+      bottom:max(160px, env(safe-area-inset-bottom) + 150px);
       left:50%; transform:translateX(-50%) translateY(14px);
       background:rgba(22,22,32,.96); color:var(--white);
       padding:10px 18px; border-radius:30px; font-size:13px;
@@ -420,6 +449,9 @@
   <div id="swiper-index">1 / 1</div>
   <button id="swiper-share" title="Partager">📤</button>
   <button id="swiper-del" title="Supprimer">🗑</button>
+  <!-- Flèches desktop uniquement -->
+  <button class="swiper-arrow" id="swiper-prev" title="Photo précédente">‹</button>
+  <button class="swiper-arrow" id="swiper-next" title="Photo suivante">›</button>
 </div>
 
 <div id="toast"></div>
@@ -610,8 +642,11 @@ function drawAnnotText(ctx, W, H, now, forCapture, mapImg) {
   ctx.fillRect(0,0,W,H);
 
   const pad  = W * 0.042;
-  // Réserve bottom pour le shutter uniquement en live — plus bas
-  const reserveBottom = forCapture ? pad*0.5 : (110 + Math.max(38,28)) * dpr;
+  // Réserve bottom : annotations plus basses, bien sous le shutter
+  // En live : réserve plus grande pour que les annotations ne chevauchent pas le shutter
+  const shutterH = (70 + 18) * dpr; // hauteur bouton + margin-top
+  const bottomPad = Math.max(48, 38) * dpr; // padding-bottom du #bottom
+  const reserveBottom = forCapture ? pad*0.5 : shutterH + bottomPad + (H * 0.01);
   const baseY = H - reserveBottom;
 
   // Espacement vertical entre lignes
@@ -939,6 +974,7 @@ function updateSwiperPos(animate=true) {
   swiperTrack.style.transition = animate ? 'transform .28s cubic-bezier(.4,0,.2,1)' : 'none';
   swiperTrack.style.transform = `translateX(${-swCur * 100}%)`;
   swiperIndex.textContent = `${swCur+1} / ${swItems.length}`;
+  updateArrows();
 }
 
 function closeSwiper() {
@@ -951,6 +987,23 @@ function closeSwiper() {
 
 document.getElementById('swiper-back').onclick = closeSwiper;
 document.getElementById('swiper-close').onclick = closeSwiper;
+
+/* ── FLÈCHES DESKTOP ── */
+const swiperPrev = document.getElementById('swiper-prev');
+const swiperNext = document.getElementById('swiper-next');
+
+function updateArrows() {
+  if (!swiperPrev || !swiperNext) return;
+  swiperPrev.classList.toggle('hidden', swCur === 0);
+  swiperNext.classList.toggle('hidden', swCur >= swItems.length - 1);
+}
+
+swiperPrev.onclick = () => {
+  if (swCur > 0) { swCur--; updateSwiperPos(true); updateArrows(); }
+};
+swiperNext.onclick = () => {
+  if (swCur < swItems.length - 1) { swCur++; updateSwiperPos(true); updateArrows(); }
+};
 
 swiperShare.onclick = () => {
   const item = swItems[swCur];
@@ -991,6 +1044,14 @@ swiper.addEventListener('pointerup', e => {
 swiper.addEventListener('pointercancel', () => {
   swDragging = false;
   updateSwiperPos(true);
+});
+
+/* ── NAVIGATION CLAVIER (desktop) ── */
+document.addEventListener('keydown', e => {
+  if (!swiper.classList.contains('open')) return;
+  if (e.key === 'ArrowLeft'  && swCur > 0)               { swCur--; updateSwiperPos(true); }
+  if (e.key === 'ArrowRight' && swCur < swItems.length-1) { swCur++; updateSwiperPos(true); }
+  if (e.key === 'Escape') closeSwiper();
 });
 
 async function shareBlob(blob,ts){
